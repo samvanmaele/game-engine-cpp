@@ -22,12 +22,10 @@
 #include <shader.hpp>
 #include <loadGLTF.hpp>
 
-struct viewmat
-{
+struct viewma {
     glm::mat4 view;
 };
-struct projmat
-{
+struct projmat {
     glm::mat4 projection;
 };
 
@@ -46,16 +44,14 @@ glm::mat4 model2;
 GLint modelpos;
 GLint projectionpos;
 
-void image(const char* filepath)
-{
+void image(const char* filepath) {
     SDL_Surface *image = IMG_Load(filepath);
 
     int bitsPerPixel = image->format->BitsPerPixel;
     printf("Image dimensions %dx%d, %d bits per pixel\n", image->w, image->h, bitsPerPixel);
 
     GLint format = GL_RGB;
-    if (bitsPerPixel == 32)
-    {
+    if (bitsPerPixel == 32) {
         format = GL_RGBA;
     }
 
@@ -75,13 +71,10 @@ void image(const char* filepath)
     SDL_FreeSurface(image);
 }
 
-bool loop()
-{
+bool loop() {
     SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        if (event.type == SDL_QUIT)
-        {
+    while (SDL_PollEvent(&event)) {
+        if (event.type == SDL_QUIT) {
             return false;
         }
     }
@@ -105,13 +98,11 @@ bool loop()
 }
 
 #ifdef TARGET_PLATFORM_WEB
-    void chooseLoop()
-    {
+    void chooseLoop() {
         emscripten_set_main_loop((em_callback_func) loop, 0, 0);
     }
 #else
-    void chooseLoop()
-    {
+    void chooseLoop() {
         bool running = true;
         while(running)
         {
@@ -120,13 +111,10 @@ bool loop()
     }
 #endif
 
-class objects
-{
+class objects {
     public: 
-        std::pair<GLuint, std::map<int, GLuint>> makeMesh(tinygltf::Model &model, int shaderProgram, const char* filepath)
-        {
-            if (!loadModel(model, filepath))
-            {
+        std::pair<GLuint, std::map<int, GLuint>> makeMesh(tinygltf::Model &model, int shaderProgram, const char* filepath) {
+            if (!loadModel(model, filepath)) {
                 std::cerr << "Failed to load glTF model." << std::endl;
             }
 
@@ -137,8 +125,7 @@ class objects
 
             return vaoAndEboslocal;
         }
-        void setUniformBuffer(int shaderProgram)
-        {
+        void setUniformBuffer(int shaderProgram) {
             GLuint ubo;
             glGenBuffers(1, &ubo);
             glBindBuffer(GL_UNIFORM_BUFFER, ubo);
@@ -167,8 +154,7 @@ class objects
 
             modelpos = glGetUniformLocation(shaderProgram, "model");
         }
-        void createObjects()
-        {
+        void createObjects() {
             int shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
             glUseProgram(shaderProgram);
             setUniformBuffer(shaderProgram);
@@ -177,8 +163,7 @@ class objects
             vaoAndEbos2 = makeMesh(modelVedal2, shaderProgram, "models/vedal987/vedal987.gltf");
         }
 };
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
 	InitGLContext(screenWidth, screenHeight, 1);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
