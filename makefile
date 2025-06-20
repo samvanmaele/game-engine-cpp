@@ -1,6 +1,39 @@
-all:
-	g++ -O3 -Isrc -Isrc/include -I models/V-nexus -Lsrc/lib -o main src/main.cpp -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lopengl32 -lglew32 -Wall
+CXX = g++
+CXXFLAGS = -O3 -Wall -Isrc -Isrc/include -Imodels/V-nexus
+LDFLAGS = -Lsrc/lib -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lopengl32 -lglew32
+OBJS = $(OUTPUT)/main.o $(OUTPUT)/shader.o $(OUTPUT)/loadGLTF.o $(OUTPUT)/glcontext.o
+OUTPUT = output
+
+$(OUTPUT)/a.out: $(OBJS)
+	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+
+$(OUTPUT)/main.o: src/main.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OUTPUT)/shader.o: src/shader.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OUTPUT)/loadGLTF.o: src/loadGLTF.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OUTPUT)/glcontext.o: src/glcontext.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+$(OUTPUT):
+	mkdir -p $(OUTPUT)
+
 run:
-	./main
+	$(OUTPUT)/a.out
 emcc:
-	emcc -O3 src/main.cpp -o output/main.html -I src -I src/include -I models -I models/V-nexus --preload-file shaders --preload-file models -s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_TTF=2 -s MAX_WEBGL_VERSION=2 --use-preload-plugins
+	emcc -O3 \
+	src/main.cpp src/shader.cpp src/loadGLTF.cpp src/glcontext.cpp \
+	-o output/main.html \
+	-Isrc -I src/include -Imodels -Imodels/V-nexus \
+	--preload-file shaders \
+	--preload-file models \
+	-s USE_SDL=2 \
+	-s USE_SDL_IMAGE=2 \
+	-s USE_SDL_TTF=2 \
+	-s MAX_WEBGL_VERSION=2 \
+	-s MIN_WEBGL_VERSION=2 \
+	--use-preload-plugins

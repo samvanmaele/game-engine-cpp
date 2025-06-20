@@ -1,7 +1,9 @@
+#include <shader.hpp>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <platform.hpp>
 
 #ifdef TARGET_PLATFORM_WEB
 	#include <emscripten.h>
@@ -25,7 +27,7 @@ unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
     vShaderFile.open(vertexPath);
     fShaderFile.open(fragmentPath);
     vShaderStream << vShaderFile.rdbuf();
-    fShaderStream << fShaderFile.rdbuf();	
+    fShaderStream << fShaderFile.rdbuf();
     vShaderFile.close();
     fShaderFile.close();
     vertexCode = vShaderStream.str();
@@ -55,7 +57,7 @@ unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "fragment shader failed\n" << infoLog << std::endl;
     };
-    
+
     unsigned int shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);

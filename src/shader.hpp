@@ -1,3 +1,3 @@
 #pragma once
 
-unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
+unsigned int makeShader(const char* vertexPath, const char* fragmentPath);

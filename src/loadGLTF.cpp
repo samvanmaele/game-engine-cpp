@@ -1,3 +1,4 @@
+#include <loadGLTF.hpp>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -5,6 +6,7 @@
 #define JSON_NOEXCEPTION
 #define BUFFER_OFFSET(i) ((char *)NULL + (i))
 #include <tinygltf/tiny_gltf.h>
+#include <iostream>
 
 void drawMesh(const std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Mesh &mesh)
 {
@@ -40,7 +42,6 @@ void drawModel(const std::pair<GLuint, std::map<int, GLuint>>& vaoAndEbos, tinyg
 
     glBindVertexArray(0);
 }
-
 bool loadModel(tinygltf::Model &model, const char *filename)
 {
     tinygltf::TinyGLTF loader;
@@ -202,7 +203,7 @@ std::pair<GLuint, std::map<int, GLuint>> bindModel(tinygltf::Model &model)
         assert((scene.nodes[i] >= 0) && (scene.nodes[i] < (int) model.nodes.size()));
         bindModelNodes(vbos, model, model.nodes[scene.nodes[i]]);
     }
-    
+
     /* cleanup vbos but do not delete index buffers yet
     for (auto it = vbos.cbegin(); it != vbos.cend();)
     {

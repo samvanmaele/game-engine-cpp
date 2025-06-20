@@ -1,3 +1,4 @@
 #pragma once
+#include <SDL2/SDL.h>
 
-void InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval)
+SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval);
