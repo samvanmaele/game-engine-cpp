@@ -19,20 +19,20 @@ void drawMesh(const std::map<int, GLuint>& vbos, tinygltf::Model &model, tinyglt
         glDrawElements(primitive.mode, indexAccessor.count, indexAccessor.componentType, BUFFER_OFFSET(indexAccessor.byteOffset));
     }
 }
-void drawModelNodes(const std::pair<GLuint, std::map<int, GLuint>>& vaoAndEbos, tinygltf::Model &model, tinygltf::Node &node)
+void drawModelNodes(const VaoData& vaoAndEbos, tinygltf::Model &model, tinygltf::Node &node)
 {
     if ((node.mesh >= 0) && (node.mesh < (int) model.meshes.size()))
     {
-        drawMesh(vaoAndEbos.second, model, model.meshes[node.mesh]);
+        drawMesh(vaoAndEbos.ebos, model, model.meshes[node.mesh]);
     }
     for (size_t i = 0; i < node.children.size(); i++)
     {
         drawModelNodes(vaoAndEbos, model, model.nodes[node.children[i]]);
     }
 }
-void drawModel(const std::pair<GLuint, std::map<int, GLuint>>& vaoAndEbos, tinygltf::Model &model)
+void drawModel(const VaoData& vaoAndEbos, tinygltf::Model &model)
 {
-    glBindVertexArray(vaoAndEbos.first);
+    glBindVertexArray(vaoAndEbos.vao);
 
     const tinygltf::Scene &scene = model.scenes[model.defaultScene];
     for (size_t i = 0; i < scene.nodes.size(); ++i)
@@ -98,7 +98,7 @@ void bindMesh(std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Mes
 
         for (auto &attrib : primitive.attributes)
         {
-            std::cout << attrib.second;
+            std::cout << attrib.second << std::endl;
             tinygltf::Accessor accessor = model.accessors[attrib.second];
             int byteStride = accessor.ByteStride(model.bufferViews[accessor.bufferView]);
             glBindBuffer(GL_ARRAY_BUFFER, vbos[accessor.bufferView]);
@@ -190,7 +190,7 @@ void bindModelNodes(std::map<int, GLuint>& vbos, tinygltf::Model &model, tinyglt
         bindModelNodes(vbos, model, model.nodes[node.children[i]]);
     }
 }
-std::pair<GLuint, std::map<int, GLuint>> bindModel(tinygltf::Model &model)
+VaoData bindModel(tinygltf::Model &model)
 {
     std::map<int, GLuint> vbos;
     GLuint vao;

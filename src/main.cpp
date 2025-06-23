@@ -11,9 +11,12 @@
 #include <iostream>
 #include <vector>
 #include <math.h>
+#include <list>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 #include <platform.hpp>
 #include <glcontext.hpp>
 #include <shader.hpp>
@@ -28,23 +31,62 @@ struct projmat
     glm::mat4 projection;
 };
 
-int screenWidth = 1000;
-int screenHeight = 800;
+int WIDTH = 1280;
+int HEIGHT = 720;
 SDL_Window* window;
-
-tinygltf::Model modelVedal;
-tinygltf::Model modelVedal2;
-std::pair<GLuint, std::map<int, GLuint>> vaoAndEbos;
-std::pair<GLuint, std::map<int, GLuint>> vaoAndEbos2;
-
-float rot = 0.05f;
-glm::mat4 model;
-glm::mat4 model2;
 
 GLint modelpos;
 GLint projectionpos;
 
-void image(const char* filepath)
+class Object
+{
+    public:
+        Object()
+        {
+        }
+        ~Object()
+        {
+        }
+        glm::vec3 position = glm::vec3(0,0,0);
+        glm::vec3 eulers = glm::vec3(0,0,0);
+        glm::mat4 transmat = glm::mat4(1.0f);
+
+        void makeTransmat()
+        {
+            transmat = glm::translate(glm::mat4(1.0f), position);
+            transmat = glm::rotate(transmat, eulers.x, glm::vec3(1,0,0));
+            transmat = glm::rotate(transmat, eulers.y, glm::vec3(0,1,0));
+            transmat = glm::rotate(transmat, eulers.z, glm::vec3(0,0,1));
+        }
+};
+class Player: public Object
+{
+    public:
+        Player(): Object()
+        {
+            position = glm::vec3(0,0,0);
+            eulers = glm::vec3(0,0,0);
+            glm::vec3 forwards = glm::vec3(0,0,1);
+        }
+        ~Player()
+        {
+        }
+};
+
+struct RenderableObject
+{
+    Object object;
+    tinygltf::Model* mesh;
+    VaoData vaoAndEbos;
+};
+
+struct TextureHandle {GLuint handle;};
+void useTex(TextureHandle texture)
+{
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, texture.handle);
+}
+TextureHandle makeTex(const char* filepath)
 {
     SDL_Surface *image = IMG_Load(filepath);
 
@@ -52,14 +94,11 @@ void image(const char* filepath)
     printf("Image dimensions %dx%d, %d bits per pixel\n", image->w, image->h, bitsPerPixel);
 
     GLint format = GL_RGB;
-    if (bitsPerPixel == 32)
-    {
-        format = GL_RGBA;
-    }
+    if (bitsPerPixel == 32) {format = GL_RGBA;}
 
-    GLuint texture;
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    TextureHandle texture;
+    glGenTextures(1, &texture.handle);
+    glBindTexture(GL_TEXTURE_2D, texture.handle);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -67,122 +106,157 @@ void image(const char* filepath)
     glTexImage2D(GL_TEXTURE_2D, 0, format, image->w, image->h, 0, format, GL_UNSIGNED_BYTE, image->pixels);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-
     SDL_FreeSurface(image);
+    return texture;
 }
 
-bool loop()
-{
-    SDL_Event event;
-    while (SDL_PollEvent(&event))
-    {
-        if (event.type == SDL_QUIT)
-        {
-            return false;
-        }
-    }
+std::list<RenderableObject> objectlist;
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    rot += 0.05f;
-
-    model = glm::translate(glm::mat4(1.0f), glm::vec3(-0.75,-0.5,0));
-    model = glm::rotate(model, rot, glm::vec3(0, 1, 0));
-    glUniformMatrix4fv(modelpos, 1, GL_FALSE, &model[0][0]);
-    drawModel(vaoAndEbos, modelVedal);
-
-    model2 = glm::translate(glm::mat4(1.0f), glm::vec3(1.5,0,0)) * model;
-    glUniformMatrix4fv(modelpos, 1, GL_FALSE, &model2[0][0]);
-    drawModel(vaoAndEbos2, modelVedal2);
-
-    SDL_GL_SwapWindow(window);
-
-    return true;
-}
-
-#ifdef TARGET_PLATFORM_WEB
-void chooseLoop()
-{
-    emscripten_set_main_loop((em_callback_func) loop, 0, 0);
-}
-#else
-void chooseLoop()
-{
-    bool running = true;
-    while(running)
-    {
-        running = loop();
-    }
-}
-#endif
-
-class objects
+class Render
 {
     public:
-    std::pair<GLuint, std::map<int, GLuint>> makeMesh(tinygltf::Model &model, int shaderProgram, const char* filepath)
-    {
-        if (!loadModel(model, filepath))
+        Render()
         {
-            std::cerr << "Failed to load glTF model." << std::endl;
+        }
+        inline void chooseLoop()
+        {
+            #ifdef TARGET_PLATFORM_WEB
+                static Render* instance;
+                emscripten_set_main_loop([](){instance->baseloop();}, 0, 0);
+            #else
+                nativeLoop();
+            #endif
         }
 
-        std::pair<GLuint, std::map<int, GLuint>> vaoAndEboslocal = bindModel(model);
+    private:
+        void nativeLoop()
+        {
+            bool running = true;
+            while(running)
+            {
+                running = baseloop();
+            }
+        }
+        bool baseloop()
+        {
+            SDL_Event event;
+            while (SDL_PollEvent(&event))
+            {
+                if (event.type == SDL_QUIT)
+                {
+                    return false;
+                }
+            }
 
-        glm::mat4 modelmat = glm::mat4(1.0);
-        glUniformMatrix4fv(modelpos, 1, GL_FALSE, &modelmat[0][0]);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        return vaoAndEboslocal;
-    }
-    void setUniformBuffer(int shaderProgram)
-    {
-        GLuint ubo;
-        glGenBuffers(1, &ubo);
-        glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+            for (RenderableObject &rendObj : objectlist)
+            {
+                rendObj.object.eulers.y += 0.05;
+                rendObj.object.makeTransmat();
+                glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
+                drawModel(rendObj.vaoAndEbos, *rendObj.mesh);
+            }
 
-        projmat dataproj = {};
-        dataproj.projection = glm::perspective(glm::radians(45.0f), (float)screenWidth/(float)screenHeight, 0.1f, 100.0f);
+            SDL_GL_SwapWindow(window);
 
-        GLuint blockIndex2 = glGetUniformBlockIndex(shaderProgram, "PROJ");
+            return true;
+        }
+};
 
-        glUniformBlockBinding(shaderProgram, blockIndex2, 0);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(projmat), &dataproj, GL_DYNAMIC_DRAW);
-        glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex2, ubo);
+class Scene
+{
+    public:
+        Scene(int sceneNr)
+        {
+            if (sceneNr == 0)
+            {
+                int shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
+                glUseProgram(shaderProgram);
+                setUniformBuffer(shaderProgram);
 
-        GLuint ubo2;
-        glGenBuffers(1, &ubo2);
-        glBindBuffer(GL_UNIFORM_BUFFER, ubo2);
+                models.emplace_back();
+                models.emplace_back();
 
-        viewmat data = {};
-        data.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+                auto& model1 = models[0];
+                auto& model2 = models[1];
 
-        GLuint blockIndex = glGetUniformBlockIndex(shaderProgram, "VIEW");
+                Object obj1;
+                Object obj2;
 
-        glUniformBlockBinding(shaderProgram, blockIndex, 1);
-        glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &data, GL_DYNAMIC_DRAW);
-        glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, ubo2);
+                obj1.position = glm::vec3(-1,-0.5, 0);
+                obj2.position = glm::vec3(1,-0.5, 0);
 
-        modelpos = glGetUniformLocation(shaderProgram, "model");
-    }
-    void createObjects()
-    {
-        int shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
-        glUseProgram(shaderProgram);
-        setUniformBuffer(shaderProgram);
+                obj1.makeTransmat();
+                obj2.makeTransmat();
 
-        vaoAndEbos = makeMesh(modelVedal, shaderProgram, "models/vedal987/vedal987.gltf");
-        vaoAndEbos2 = makeMesh(modelVedal2, shaderProgram, "models/vedal987/vedal987.gltf");
-    }
+                VaoData mesh1 = makeMesh(model1, shaderProgram, "models/vedal987/vedal987.gltf");
+                VaoData mesh2 = makeMesh(model2, shaderProgram, "models/vedal987/vedal987.gltf");
+
+                objectlist =
+                {
+                    {obj1, &model1, mesh1},
+                    {obj2, &model2, mesh2}
+                };
+            }
+        }
+
+    private:
+        std::vector<tinygltf::Model> models;
+
+        VaoData makeMesh(tinygltf::Model &model, int shaderProgram, const char* filepath)
+        {
+            if (!loadModel(model, filepath))
+            {
+                std::cerr << "Failed to load glTF model." << std::endl;
+            }
+
+            VaoData vaoAndEboslocal = bindModel(model);
+
+            glm::mat4 modelmat = glm::mat4(1.0);
+            glUniformMatrix4fv(modelpos, 1, GL_FALSE, &modelmat[0][0]);
+
+            return vaoAndEboslocal;
+        }
+        void setUniformBuffer(int shaderProgram)
+        {
+            GLuint ubo;
+            glGenBuffers(1, &ubo);
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo);
+
+            projmat dataproj = {};
+            dataproj.projection = glm::perspective(glm::radians(45.0f), (float)WIDTH/(float)HEIGHT, 0.1f, 100.0f);
+
+            GLuint blockIndex;
+            blockIndex = glGetUniformBlockIndex(shaderProgram, "PROJ");
+            glUniformBlockBinding(shaderProgram, blockIndex, 0);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(projmat), &dataproj, GL_STATIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, ubo);
+
+            GLuint ubo2;
+            glGenBuffers(1, &ubo2);
+            glBindBuffer(GL_UNIFORM_BUFFER, ubo2);
+
+            viewmat data = {};
+            data.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+            blockIndex = glGetUniformBlockIndex(shaderProgram, "VIEW");
+            glUniformBlockBinding(shaderProgram, blockIndex, 1);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &data, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, ubo2);
+
+            modelpos = glGetUniformLocation(shaderProgram, "model");
+        }
+
 };
 int main(int argc, char* argv[])
 {
-    window = InitGLContext(screenWidth, screenHeight, 1);
+    window = InitGLContext(WIDTH, HEIGHT, 1);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    objects obj;
-    obj.createObjects();
+    Scene scene(0);
 
-    chooseLoop();
+    Render renderer;
+    renderer.chooseLoop();
     return 0;
 }
