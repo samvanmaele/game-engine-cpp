@@ -10,7 +10,8 @@
 
 void drawMesh(const std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Mesh &mesh)
 {
-    for (size_t i = 0; i < mesh.primitives.size(); ++i) {
+    for (size_t i = 0; i < mesh.primitives.size(); ++i)
+    {
         tinygltf::Primitive primitive = mesh.primitives[i];
         tinygltf::Accessor indexAccessor = model.accessors[primitive.indices];
 

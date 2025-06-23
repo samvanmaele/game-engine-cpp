@@ -12,6 +12,7 @@
 #include <vector>
 #include <math.h>
 #include <list>
+#include <memory>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -31,7 +32,7 @@ struct projmat
     glm::mat4 projection;
 };
 
-int WIDTH = 1280;
+int WIDTH = 1080;
 int HEIGHT = 720;
 SDL_Window* window;
 
@@ -59,15 +60,35 @@ class Object
             transmat = glm::rotate(transmat, eulers.z, glm::vec3(0,0,1));
         }
 };
+class Camera: public Object
+{
+    public:
+        glm::vec3 forwards;
+        float zoom;
+
+        Camera(glm::vec3 center): Object()
+        {
+            forwards = glm::vec3(0,0,1);
+            zoom = 3.0f;
+            position = center + zoom * forwards;
+        }
+
+        ~Camera()
+        {
+        }
+};
 class Player: public Object
 {
     public:
-        Player(): Object()
+        Camera cam;
+
+        Player(): Object(), cam(position)
         {
             position = glm::vec3(0,0,0);
             eulers = glm::vec3(0,0,0);
             glm::vec3 forwards = glm::vec3(0,0,1);
         }
+
         ~Player()
         {
         }
@@ -76,11 +97,13 @@ class Player: public Object
 struct RenderableObject
 {
     Object object;
-    tinygltf::Model* mesh;
+    std::shared_ptr<tinygltf::Model> mesh;
     VaoData vaoAndEbos;
 };
-
-struct TextureHandle {GLuint handle;};
+struct TextureHandle
+{
+    GLuint handle;
+};
 void useTex(TextureHandle texture)
 {
     glActiveTexture(GL_TEXTURE0);
@@ -142,10 +165,26 @@ class Render
             SDL_Event event;
             while (SDL_PollEvent(&event))
             {
-                if (event.type == SDL_QUIT)
+                switch (event.type)
                 {
+                case SDL_QUIT:
                     return false;
+                    break;
                 }
+            }
+
+            const Uint8* keystate = SDL_GetKeyboardState(NULL);
+            glm::vec2 move = glm::vec2(0,0);
+
+            if (keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP])    move.y -= 1.0f;
+            if (keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN])  move.y += 1.0f;
+            if (keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT])  move.x -= 1.0f;
+            if (keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT]) move.x += 1.0f;
+
+            if (move.x or move.y)
+            {
+                objectlist.front().object.position.x += move.x * 0.02;
+                objectlist.front().object.position.z += move.y * 0.02;
             }
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -154,6 +193,7 @@ class Render
             {
                 rendObj.object.eulers.y += 0.05;
                 rendObj.object.makeTransmat();
+
                 glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
                 drawModel(rendObj.vaoAndEbos, *rendObj.mesh);
             }
@@ -175,35 +215,30 @@ class Scene
                 glUseProgram(shaderProgram);
                 setUniformBuffer(shaderProgram);
 
-                models.emplace_back();
-                models.emplace_back();
+                std::shared_ptr<tinygltf::Model> model1 = std::make_shared<tinygltf::Model>();
+                //std::shared_ptr<tinygltf::Model> model2 = std::make_shared<tinygltf::Model>();
 
-                auto& model1 = models[0];
-                auto& model2 = models[1];
-
-                Object obj1;
-                Object obj2;
+                Player obj1;
+                //Object obj2;
 
                 obj1.position = glm::vec3(-1,-0.5, 0);
-                obj2.position = glm::vec3(1,-0.5, 0);
+                //obj2.position = glm::vec3(1,-0.5, 0);
 
                 obj1.makeTransmat();
-                obj2.makeTransmat();
+                //obj2.makeTransmat();
 
-                VaoData mesh1 = makeMesh(model1, shaderProgram, "models/vedal987/vedal987.gltf");
-                VaoData mesh2 = makeMesh(model2, shaderProgram, "models/vedal987/vedal987.gltf");
+                VaoData mesh1 = makeMesh(*model1, shaderProgram, "models/vedal987/vedal987.gltf");
+                //VaoData mesh2 = makeMesh(*model2, shaderProgram, "models/vedal987/vedal987.gltf");
 
                 objectlist =
                 {
-                    {obj1, &model1, mesh1},
-                    {obj2, &model2, mesh2}
+                    {obj1, model1, mesh1},
+                    //{obj2, model2, mesh2}
                 };
             }
         }
 
     private:
-        std::vector<tinygltf::Model> models;
-
         VaoData makeMesh(tinygltf::Model &model, int shaderProgram, const char* filepath)
         {
             if (!loadModel(model, filepath))
