@@ -195,12 +195,12 @@
 		{
 			"mimeType":"image/png",
 			"name":"water_pump",
-			"uri":"utilities/water_pump.png"
+			"uri":"water_pump.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"power_generator",
-			"uri":"utilities/power_generator.png"
+			"uri":"power_generator.png"
 		}
 	],
 	"accessors":[

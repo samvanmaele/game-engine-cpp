@@ -60,7 +60,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"street",
-			"uri":"street/street.png"
+			"uri":"street.png"
 		}
 	],
 	"accessors":[

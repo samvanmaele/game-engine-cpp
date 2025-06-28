@@ -61,7 +61,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"item_shop",
-			"uri":"item_shop/item_shop.png"
+			"uri":"item_shop.png"
 		}
 	],
 	"accessors":[

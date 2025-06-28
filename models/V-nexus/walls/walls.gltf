@@ -229,7 +229,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"walls",
-			"uri":"walls/walls.png"
+			"uri":"walls.png"
 		}
 	],
 	"accessors":[

@@ -4,6 +4,15 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <platform.hpp>
+#include <unordered_map>
+#include <vector>
+#include <string>
+
+#pragma once
+
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
 
 #ifdef TARGET_PLATFORM_WEB
 	#include <emscripten.h>
@@ -13,22 +22,35 @@
 	#include <glew/glew.h>
 #endif
 
-struct VaoData
+#define BUFFER_OFFSET(i) ((char *)nullptr + (i))
+
+struct MeshDraw
 {
     GLuint vao;
-    std::map<int, GLuint> ebos;
+    GLsizei count;
+    GLenum indexType;
+    GLenum mode;
+	int textureIndex = -1;
 };
 
-void drawMesh(const std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Mesh &mesh);
+bool loadModel(tinygltf::Model& model, const std::string& filename);
 
-void drawModelNodes(const VaoData& vaoAndEbos, tinygltf::Model &model, tinygltf::Node &node);
+GLuint createTexture(const tinygltf::Model& model, int index);
 
-void drawModel(const VaoData& vaoAndEbos, tinygltf::Model &model);
+class Model
+{
+	public:
+        std::vector<MeshDraw> meshdata;
 
-bool loadModel(tinygltf::Model &model, const char *filename);
+		Model(const char* filename);
+		void drawModel();
+		~Model();
 
-void bindMesh(std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Mesh &mesh);
+	private:
+		std::unordered_map<int, GLuint> textureMap;
 
-void bindModelNodes(std::map<int, GLuint>& vbos, tinygltf::Model &model, tinygltf::Node &node);
-
-VaoData bindModel(tinygltf::Model &model);
+		void bindNode(tinygltf::Model& model, const tinygltf::Node& node);
+		void bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh);
+		void bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos);
+		void createTexture(const tinygltf::Model& model, int index);
+};

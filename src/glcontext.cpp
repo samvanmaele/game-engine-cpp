@@ -32,7 +32,7 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
 
     #ifdef TARGET_PLATFORM_WEB
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
     #else
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
@@ -57,13 +57,13 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     #ifdef TARGET_PLATFORM_WEB
         EmscriptenWebGLContextAttributes attrs = {};
         attrs.antialias = true;
-        attrs.majorVersion = 3;
+        attrs.majorVersion = 2;
         attrs.minorVersion = 0;
         attrs.alpha = true;
         attrs.powerPreference = EM_WEBGL_POWER_PREFERENCE_DEFAULT;
 
         emscripten_webgl_init_context_attributes(&attrs);
-        attrs.majorVersion = 3;
+        attrs.majorVersion = 2;
         EMSCRIPTEN_WEBGL_CONTEXT_HANDLE webgl_context = emscripten_webgl_create_context("#canvas", &attrs);
         emscripten_webgl_make_context_current(webgl_context);
     #else
@@ -92,6 +92,7 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     SDL_GL_SwapWindow(window);
+    SDL_SetRelativeMouseMode(SDL_TRUE);
 
     std::cout << "OpenGL initialized" << std::endl;
     std::cout << "GL_VERSION: " << glGetString(GL_VERSION) << std::endl;

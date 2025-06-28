@@ -61,7 +61,7 @@
 		{
 			"mimeType":"image/png",
 			"name":"item_factory",
-			"uri":"item_factory/item_factory.png"
+			"uri":"item_factory.png"
 		}
 	],
 	"accessors":[

@@ -294,32 +294,32 @@
 		{
 			"mimeType":"image/png",
 			"name":"grass_field2",
-			"uri":"floors/grass_field2.png"
+			"uri":"grass_field2.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"item_factory",
-			"uri":"floors/item_factory.png"
+			"uri":"item_factory.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"upgrade_smith",
-			"uri":"floors/upgrade_smith.png"
+			"uri":"upgrade_smith.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"vedal's_house",
-			"uri":"floors/vedals_house.png"
+			"uri":"vedals_house.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"water_pump",
-			"uri":"floors/water_pump.png"
+			"uri":"water_pump.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"power_generator",
-			"uri":"floors/power_generator.png"
+			"uri":"power_generator.png"
 		}
 	],
 	"accessors":[

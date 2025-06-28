@@ -99,12 +99,12 @@
 		{
 			"mimeType":"image/png",
 			"name":"beacon",
-			"uri":"world_center/beacon.png"
+			"uri":"beacon.png"
 		},
 		{
 			"mimeType":"image/png",
 			"name":"world_center_building",
-			"uri":"world_center/world_center_building.png"
+			"uri":"world_center_building.png"
 		}
 	],
 	"accessors":[
