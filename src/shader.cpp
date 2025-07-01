@@ -13,8 +13,7 @@
 	#include <glew/glew.h>
 #endif
 
-unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
-{
+unsigned int makeShader(const char* vertexPath, const char* fragmentPath) {
     std::string vertexCode;
     std::string fragmentCode;
     std::ifstream vShaderFile;
@@ -42,8 +41,7 @@ unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
     glShaderSource(vertexShader, 1, &vShaderCode, NULL);
     glCompileShader(vertexShader);
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
+    if(!success) {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
         std::cout << "vertex shader failed" << infoLog << std::endl;
     };
@@ -52,8 +50,7 @@ unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
     glShaderSource(fragmentShader, 1, &fShaderCode, NULL);
     glCompileShader(fragmentShader);
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if(!success)
-    {
+    if(!success) {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
         std::cout << "fragment shader failed\n" << infoLog << std::endl;
     };
@@ -63,8 +60,7 @@ unsigned int makeShader(const char* vertexPath, const char* fragmentPath)
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-    if(!success)
-    {
+    if(!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
     }
