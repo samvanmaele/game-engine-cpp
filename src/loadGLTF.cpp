@@ -21,8 +21,7 @@
 #define BUFFER_OFFSET(i) ((char *)nullptr + (i))
 std::unordered_map<int, GLuint> textureMap;
 
-bool loadModel(tinygltf::Model& model, const std::string& filename)
-{
+bool loadModel(tinygltf::Model& model, const std::string& filename) {
     tinygltf::TinyGLTF loader;
     std::string err, warn;
 
@@ -34,24 +33,19 @@ bool loadModel(tinygltf::Model& model, const std::string& filename)
     return res;
 }
 
-Model::Model(const char* filename)
-{
+Model::Model(const char* filename) {
     tinygltf::Model model;
     loadModel(model, filename);
     const tinygltf::Scene& scene = model.scenes[model.defaultScene];
 
-    for (int nodeIndex : scene.nodes)
-    {
+    for (int nodeIndex : scene.nodes) {
         const tinygltf::Node& node = model.nodes[nodeIndex];
         bindNode(model, node);
     }
 }
-void Model::drawModel()
-{
-    for (const auto& mesh : meshdata)
-    {
-        if (mesh.textureIndex >= 0)
-        {
+void Model::drawModel() {
+    for (const auto& mesh : meshdata) {
+        if (mesh.textureIndex >= 0) {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, textureMap[mesh.textureIndex]);
         }
@@ -59,27 +53,21 @@ void Model::drawModel()
         glDrawElements(mesh.mode, mesh.count, mesh.indexType, (void*)0);
     }
 }
-Model::~Model()
-{
-}
-void Model::bindNode(tinygltf::Model& model, const tinygltf::Node& node)
-{
+Model::~Model() {}
+
+void Model::bindNode(tinygltf::Model& model, const tinygltf::Node& node) {
     if (node.mesh >= 0) {bindMesh(model, model.meshes[node.mesh]);}
-    for (int child : node.children)
-    {
+    for (int child : node.children) {
         if (child >= 0) {bindNode(model, model.nodes[child]);}
     }
 }
-void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh)
-{
-    for (const auto& primitive : mesh.primitives)
-    {
+void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh) {
+    for (const auto& primitive : mesh.primitives) {
         GLuint vao;
         glGenVertexArrays(1, &vao);
         glBindVertexArray(vao);
 
-        for (const auto& attrib : primitive.attributes)
-        {
+        for (const auto& attrib : primitive.attributes) {
             if (attrib.first == "POSITION") {bindAttrib(model, 0, 3, attrib.second);}
             else if (attrib.first == "TEXCOORD_0") {bindAttrib(model, 1, 2, attrib.second);}
             else if (attrib.first == "NORMAL") {bindAttrib(model, 2, 3, attrib.second);}
@@ -102,11 +90,9 @@ void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh)
         draw.mode = primitive.mode;
 
         int materialIndex = primitive.material;
-        if (materialIndex >= 0)
-        {
+        if (materialIndex >= 0) {
             const auto& material = model.materials[materialIndex];
-            if (material.values.find("baseColorTexture") != material.values.end())
-            {
+            if (material.values.find("baseColorTexture") != material.values.end()) {
                 int texIndex = material.values.at("baseColorTexture").TextureIndex();
                 draw.textureIndex = texIndex;
                 createTexture(model, texIndex);
@@ -116,8 +102,7 @@ void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh)
         meshdata.push_back(draw);
     }
 }
-void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos)
-{
+void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos) {
     GLuint vbo;
 
     const auto& accessor = model.accessors[attribPos];
@@ -131,8 +116,7 @@ void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int att
     glEnableVertexAttribArray(binding);
     glVertexAttribPointer(binding, vecSize, accessor.componentType, GL_FALSE, vecSize*4, (void*)0);
 }
-void Model::createTexture(const tinygltf::Model& model, int index)
-{
+void Model::createTexture(const tinygltf::Model& model, int index) {
     const tinygltf::Image& image = model.images[index];
 
     GLuint tex;

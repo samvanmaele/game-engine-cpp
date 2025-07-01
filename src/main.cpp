@@ -35,12 +35,10 @@
 #include <shader.hpp>
 #include <loadGLTF.hpp>
 
-struct alignas(16) viewmat
-{
+struct alignas(16) viewmat {
     glm::mat4 view;
 };
-struct alignas(16) projmat
-{
+struct alignas(16) projmat {
     glm::mat4 projection;
 };
 
@@ -53,21 +51,17 @@ GLint modelpos;
 GLuint uboProjection;
 GLuint uboView;
 
-class Object
-{
+class Object {
     public:
-        Object()
-        {
-        }
-        ~Object()
-        {
-        }
+        Object() {}
+
+        ~Object() {}
+
         alignas(16) glm::vec3 position = glm::vec3(0,0,0);
         alignas(16) glm::vec3 eulers = glm::vec3(0,0,0);
         alignas(16) glm::mat4 transmat = glm::mat4(1.0f);
 
-        void makeTransmat()
-        {
+        void makeTransmat() {
             transmat = glm::rotate(glm::mat4(1.0f), eulers.x, glm::vec3(1,0,0));
             transmat = glm::rotate(transmat, eulers.y, glm::vec3(0,1,0));
             transmat = glm::rotate(transmat, eulers.z, glm::vec3(0,0,1));
@@ -76,23 +70,20 @@ class Object
             transmat[3][2] = position.z;
         }
 };
-class Camera: public Object
-{
+class Camera: public Object {
     public:
         alignas(16) glm::vec3 forward;
         alignas(16) glm::vec3 right;
         alignas(16) glm::vec3 up;
         float zoom;
 
-        Camera(glm::vec3 center): Object()
-        {
+        Camera(glm::vec3 center): Object() {
             forward = glm::vec3(0,0,1);
             right = glm::vec3(1,0,0);
             up = glm::vec3(0,1,0);
             zoom = 10.0f;
         }
-        std::pair<float, float> update()
-        {
+        std::pair<float, float> update() {
             float cosX = std::cos(eulers.x);
             float sinX = std::sin(eulers.x);
             float cosY = std::cos(eulers.y);
@@ -104,8 +95,7 @@ class Camera: public Object
 
             return {cosX, sinX};
         }
-        void makeView(glm::vec3 center)
-        {
+        void makeView(glm::vec3 center) {
             position = center - forward * zoom;
 
             viewData.view[0][0] = right.x;
@@ -131,30 +121,25 @@ class Camera: public Object
             glBindBuffer(GL_UNIFORM_BUFFER, uboView);
             glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(viewData), &viewData);
         }
-        ~Camera()
-        {
-        }
+        ~Camera() {}
+
     private:
         viewmat viewData = {};
 };
-class Player: public Object
-{
+class Player: public Object {
     public:
         Camera cam;
         alignas(16) glm::vec3 forward;
         alignas(16) glm::vec3 right;
 
-        Player(): Object(), cam(position)
-        {
+        Player(): Object(), cam(position) {
             position = glm::vec3(0,0,0);
             eulers = glm::vec3(0,0,0);
             forward = glm::vec3(0,0,1);
             right = glm::vec3(1,0,0);
         }
-        void update(float moveX, float moveY, bool updateCam)
-        {
-            if (updateCam)
-            {
+        void update(float moveX, float moveY, bool updateCam) {
+            if (updateCam) {
                 auto [cosX, sinX] = cam.update();
                 forward = glm::vec3(cosX, 0, -sinX);
                 right = glm::vec3(-sinX, 0, -cosX);
@@ -165,32 +150,26 @@ class Player: public Object
             cam.makeView(position);
             makeTransmat();
         }
-        ~Player()
-        {
-        }
+        ~Player() {}
+
 };
 
-struct RenderableObject
-{
+struct RenderableObject {
     Object object;
     std::shared_ptr<Model> model;
 };
-struct PlayerObject
-{
+struct PlayerObject {
     Player object;
     std::shared_ptr<Model> model;
 };
-struct TextureHandle
-{
+struct TextureHandle {
     GLuint handle;
 };
-void useTex(TextureHandle texture)
-{
+void useTex(TextureHandle texture) {
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, texture.handle);
 }
-TextureHandle makeTex(const char* filepath)
-{
+TextureHandle makeTex(const char* filepath) {
     SDL_Surface *image = IMG_Load(filepath);
 
     int bitsPerPixel = image->format->BitsPerPixel;
@@ -218,33 +197,27 @@ PlayerObject playobj;
 
 extern "C" void renderLoopWrapper(void* arg);
 
-class Render
-{
+class Render {
     public:
-        Render()
-        {
+        Render() {
             chooseLoop();
         }
-        void loopOnce()
-        {
-            if (!baseloop())
-            {
+        void loopOnce() {
+            if (!baseloop()) {
                 #ifdef TARGET_PLATFORM_WEB
                     emscripten_cancel_main_loop(); // stop loop if baseloop returned false
                 #endif
             }
         }
-        inline void chooseLoop()
-        {
+        inline void chooseLoop() {
             #ifdef TARGET_PLATFORM_WEB
                 emscripten_set_main_loop_arg(renderLoopWrapper, this, 0, 1);
             #else
                 nativeLoop();
             #endif
         }
-        ~Render()
-        {
-        }
+        ~Render() {}
+
 
     private:
         Uint32 previousFrameTime = SDL_GetTicks();
@@ -252,23 +225,18 @@ class Render
         int frameCount = 0;
         float deltaTime = 0.0f;
 
-        void nativeLoop()
-        {
+        void nativeLoop() {
             bool running = true;
-            while(running)
-            {
+            while(running) {
                 running = baseloop();
             }
         }
-        bool baseloop()
-        {
+        bool baseloop() {
             bool updateCam = false;
 
             SDL_Event event;
-            while (SDL_PollEvent(&event))
-            {
-                switch (event.type)
-                {
+            while (SDL_PollEvent(&event)) {
+                switch (event.type) {
                 case SDL_QUIT:
                     return false;
                     break;
@@ -295,8 +263,7 @@ class Render
             playobj.model->drawModel();
 
             //std::for_each(std::execution::par, objectlist.begin(), objectlist.end(), [](RenderableObject &rendObj)
-            for (RenderableObject &rendObj : objectlist)
-            {
+            for (RenderableObject &rendObj : objectlist) {
                 glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
                 rendObj.model->drawModel();
             }//);
@@ -306,16 +273,14 @@ class Render
 
             return true;
         }
-        void getFPS()
-        {
+        void getFPS() {
             frameCount++;
 
             Uint32 currentTime = SDL_GetTicks();
             deltaTime = currentTime - previousFrameTime;
             previousFrameTime = currentTime;
 
-            if (currentTime - lastTime >= 1000)
-            {
+            if (currentTime - lastTime >= 1000) {
                 float delta = currentTime - lastTime;
                 float fps = frameCount * 1000.0f / delta;
                 float avgFrameTime = delta / frameCount;
@@ -332,13 +297,10 @@ extern "C" void renderLoopWrapper(void* arg) {
     static_cast<Render*>(arg)->loopOnce();
 }
 
-class Scene
-{
+class Scene {
     public:
-        Scene(int sceneNr)
-        {
-            if (sceneNr == 0)
-            {
+        Scene(int sceneNr) {
+            if (sceneNr == 0) {
                 int shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
                 glUseProgram(shaderProgram);
                 setUniformBuffer(shaderProgram);
@@ -398,8 +360,7 @@ class Scene
 
                 playobj = PlayerObject{obj1, mesh1};
 
-                objectlist =
-                {
+                objectlist = {
                     {obj2,  mesh2},
                     {obj3,  mesh3},
                     {obj4,  mesh4},
@@ -414,13 +375,11 @@ class Scene
                 };
             }
         }
-        ~Scene()
-        {
-        }
+        ~Scene() {}
+
 
     private:
-        void setUniformBuffer(int shaderProgram)
-        {
+        void setUniformBuffer(int shaderProgram) {
             projmat dataproj = {};
             dataproj.projection = glm::perspective(glm::radians(45.0f), (float)WIDTH/(float)HEIGHT, 0.1f, 100.0f);
             viewmat data = {};
@@ -446,8 +405,7 @@ class Scene
         }
 
 };
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     window = InitGLContext(WIDTH, HEIGHT, 0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 

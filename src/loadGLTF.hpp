@@ -24,8 +24,7 @@
 
 #define BUFFER_OFFSET(i) ((char *)nullptr + (i))
 
-struct MeshDraw
-{
+struct MeshDraw {
     GLuint vao;
     GLsizei count;
     GLenum indexType;
@@ -37,8 +36,7 @@ bool loadModel(tinygltf::Model& model, const std::string& filename);
 
 GLuint createTexture(const tinygltf::Model& model, int index);
 
-class Model
-{
+class Model {
 	public:
         std::vector<MeshDraw> meshdata;
 

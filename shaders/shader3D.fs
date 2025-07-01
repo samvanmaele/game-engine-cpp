@@ -7,8 +7,7 @@ uniform sampler2D material;
 
 layout (location = 0) out vec4 color;
 
-void main()
-{
+void main() {
     vec4 baseTex = texture(material, TexCoords);
     color = pow(baseTex, vec4(0.45));
 }

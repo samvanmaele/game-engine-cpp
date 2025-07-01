@@ -14,17 +14,14 @@
     #include <glew/glew.h>
 #endif
 
-SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval)
-{
+SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval) {
     SDL_Window* window;
     SDL_GLContext mainContext;
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;
     }
-    if (TTF_Init() == -1)
-    {
+    if (TTF_Init() == -1) {
         std::cerr << "Unable to initialize TTF: " << TTF_GetError() << std::endl;
     }
 
@@ -44,14 +41,12 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
     window = SDL_CreateWindow("...", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-    if (!window)
-    {
+    if (!window) {
         std::cerr << "Unable to create window: " << SDL_GetError() << std::endl;
     }
 
     mainContext = SDL_GL_CreateContext(window);
-    if (!mainContext)
-    {
+    if (!mainContext) {
         std::cerr << "Unable to create OpenGL context: " << SDL_GetError() << std::endl;
     }
     #ifdef TARGET_PLATFORM_WEB
@@ -69,18 +64,14 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     #else
         glewExperimental = GL_TRUE;
         GLenum glewinit = glewInit();
-        if(glewinit!=GLEW_OK)
-        {
+        if(glewinit!=GLEW_OK) {
             std::cout << "glewInit failed, aborting" << "\n";
-        }
-        else
-        {
+        } else {
             std::cout << "GLEW initialised" << "\n";
         }
     #endif
 
-    if (SDL_GL_SetSwapInterval(swapInterval) < 0)
-    {
+    if (SDL_GL_SetSwapInterval(swapInterval) < 0) {
         std::cerr << "Unable to set swap interval: " << SDL_GetError() << std::endl;
     }
 
