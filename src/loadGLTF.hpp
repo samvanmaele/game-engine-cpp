@@ -40,10 +40,11 @@ GLuint createTexture(const tinygltf::Model& model, int index);
 class Model
 {
 	public:
-        std::vector<MeshDraw> meshdata;
+		std::vector<MeshDraw> meshdata;
 
 		Model(const char* filename);
 		void drawModel();
+		void drawDepth();
 		~Model();
 
 	private:

@@ -50,12 +50,13 @@ void Model::drawModel()
 {
     for (const auto& mesh : meshdata)
     {
+        glBindVertexArray(mesh.vao);
         if (mesh.textureIndex >= 0)
         {
             glActiveTexture(GL_TEXTURE0);
             glBindTexture(GL_TEXTURE_2D, textureMap[mesh.textureIndex]);
         }
-        glBindVertexArray(mesh.vao);
+
         glDrawElements(mesh.mode, mesh.count, mesh.indexType, (void*)0);
     }
 }

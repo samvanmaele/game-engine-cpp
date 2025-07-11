@@ -25,7 +25,7 @@
 #endif
 
 #define GLM_ENABLE_EXPERIMENTAL
-#define GLM_FORCE_SIMD
+#define GLM_FORCE_INTRINSICS
 #define GLM_FORCE_ALIGNED
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -44,8 +44,8 @@ struct alignas(16) projmat
     glm::mat4 projection;
 };
 
-int WIDTH = 2560;
-int HEIGHT = 1400;
+int WIDTH = 1920;
+int HEIGHT = 1080;
 SDL_Window* window;
 
 GLint modelpos;
@@ -290,7 +290,29 @@ class Render
 
             if (move.x or move.y or updateCam) {playobj.object.update(move.x, move.y, updateCam);}
 
+            /*
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            glDepthMask(GL_TRUE);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            glDepthFunc(GL_LESS);
+
+            glUniformMatrix4fv(modelpos, 1, GL_FALSE, &playobj.object.transmat[0][0]);
+            playobj.model->drawDepth();
+
+            for (RenderableObject& rendObj : objectlist)
+            {
+                glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
+                rendObj.model->drawDepth();
+            }
+
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+            glDepthMask(GL_FALSE);
+            glClear(GL_COLOR_BUFFER_BIT);
+            glDepthFunc(GL_EQUAL);
+            */
+
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
             glUniformMatrix4fv(modelpos, 1, GL_FALSE, &playobj.object.transmat[0][0]);
             playobj.model->drawModel();
 
@@ -449,6 +471,7 @@ class Scene
 int main(int argc, char* argv[])
 {
     window = InitGLContext(WIDTH, HEIGHT, 0);
+    SDL_GL_SetSwapInterval(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     Scene scene(0);

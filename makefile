@@ -5,19 +5,19 @@ OBJS = $(OUTPUT)/main.o $(OUTPUT)/shader.o $(OUTPUT)/loadGLTF.o $(OUTPUT)/glcont
 OUTPUT = output
 
 $(OUTPUT)/a.exe: $(OBJS)
-	$(CXX) $(OBJS) -o $@ $(LDFLAGS)
+	$(CXX) $(OBJS) -g -o $@ $(LDFLAGS)
 
 $(OUTPUT)/main.o: src/main.cpp src/shader.hpp src/loadGLTF.hpp src/glcontext.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -g -o $@
 
 $(OUTPUT)/shader.o: src/shader.cpp src/shader.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -g -o $@
 
 $(OUTPUT)/loadGLTF.o: src/loadGLTF.cpp src/loadGLTF.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -g -o $@
 
 $(OUTPUT)/glcontext.o: src/glcontext.cpp src/glcontext.hpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -c $< -g -o $@
 
 run:
 	$(OUTPUT)/a.exe
