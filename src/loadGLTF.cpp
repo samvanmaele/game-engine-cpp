@@ -21,6 +21,29 @@
 #define BUFFER_OFFSET(i) ((char *)nullptr + (i))
 std::unordered_map<int, GLuint> textureMap;
 
+std::optional<glm::vec3> boundingbox::intersectRay(const glm::vec3& ray, const glm::vec3& origin)
+{
+    glm::vec3 dirFrac;
+    for (int i = 0; i < 3; ++i)
+    {
+        dirFrac[i] = (ray[i] != 0.0f) ? 1.0f / ray[i] : std::numeric_limits<float>::infinity();
+    }
+
+    float t1 = (min.x - origin.x) * dirFrac.x;
+    float t2 = (max.x - origin.x) * dirFrac.x;
+    float t3 = (min.y - origin.y) * dirFrac.y;
+    float t4 = (max.y - origin.y) * dirFrac.y;
+    float t5 = (min.z - origin.z) * dirFrac.z;
+    float t6 = (max.z - origin.z) * dirFrac.z;
+
+    float tmin = std::max({std::min(t1, t2), std::min(t3, t4), std::min(t5, t6)});
+    float tmax = std::min({std::max(t1, t2), std::max(t3, t4), std::max(t5, t6)});
+
+    if (tmax < 0 || tmin > tmax) {return std::nullopt;}
+    float t = (tmin >= 0) ? tmin : tmax;
+    return ray * t;
+}
+
 bool loadModel(tinygltf::Model& model, const std::string& filename)
 {
     tinygltf::TinyGLTF loader;
@@ -39,6 +62,11 @@ Model::Model(const char* filename)
     tinygltf::Model model;
     loadModel(model, filename);
     const tinygltf::Scene& scene = model.scenes[model.defaultScene];
+
+    boundingbox box = {};
+    box.min = glm::vec3(std::numeric_limits<float>::max());
+    box.max = glm::vec3(std::numeric_limits<float>::lowest());
+    aabb = box;
 
     for (int nodeIndex : scene.nodes)
     {
@@ -81,11 +109,11 @@ void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh)
 
         for (const auto& attrib : primitive.attributes)
         {
-            if (attrib.first == "POSITION") {bindAttrib(model, 0, 3, attrib.second);}
-            else if (attrib.first == "TEXCOORD_0") {bindAttrib(model, 1, 2, attrib.second);}
-            else if (attrib.first == "NORMAL") {bindAttrib(model, 2, 3, attrib.second);}
-            else if (attrib.first == "JOINTS_0") {bindAttrib(model, 3, 4, attrib.second);}
-            else if (attrib.first == "WEIGHTS_0") {bindAttrib(model, 4, 4, attrib.second);}
+            if (attrib.first == "POSITION") {bindAttrib(model, 0, 3, attrib.second, true);}
+            else if (attrib.first == "NORMAL") {bindAttrib(model, 1, 3, attrib.second, false);}
+            else if (attrib.first == "TEXCOORD_0") {bindAttrib(model, 2, 2, attrib.second, false);}
+            else if (attrib.first == "JOINTS_0") {bindAttrib(model, 3, 4, attrib.second, false);}
+            else if (attrib.first == "WEIGHTS_0") {bindAttrib(model, 4, 4, attrib.second, false);}
         }
         const auto& accessor = model.accessors[primitive.indices];
         const auto& bufferView = model.bufferViews[accessor.bufferView];
@@ -114,10 +142,10 @@ void Model::bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh)
             }
         }
 
-        meshdata.push_back(draw);
+        meshdata.push_back(std::move(draw));
     }
 }
-void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos)
+void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos, bool collision)
 {
     GLuint vbo;
 
@@ -131,6 +159,21 @@ void Model::bindAttrib(tinygltf::Model& model, int binding, int vecSize, int att
 
     glEnableVertexAttribArray(binding);
     glVertexAttribPointer(binding, vecSize, accessor.componentType, GL_FALSE, vecSize*4, (void*)0);
+
+    if (collision)
+    {
+        boundingbox box = {};
+        box.min = glm::make_vec3(accessor.minValues.data());
+        box.max = glm::make_vec3(accessor.maxValues.data());
+
+        for (int i = 0; i < 3; i++)
+        {
+            aabb.min[i] = std::min(aabb.min[i], box.min[i]);
+            aabb.max[i] = std::max(aabb.max[i], box.max[i]);
+        }
+
+        boundingboxes.push_back(box);
+    }
 }
 void Model::createTexture(const tinygltf::Model& model, int index)
 {

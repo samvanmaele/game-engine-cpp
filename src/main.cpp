@@ -30,6 +30,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_image.h>
 
 #include <glcontext.hpp>
 #include <shader.hpp>
@@ -43,6 +45,15 @@ struct alignas(16) projmat
 {
     glm::mat4 projection;
 };
+struct alignas(16) lighting
+{
+    glm::vec4 lightcolor;
+    glm::vec3 lightposition;
+};
+struct alignas(16) campos
+{
+    glm::vec3 camPos;
+};
 
 int WIDTH = 1920;
 int HEIGHT = 1080;
@@ -52,6 +63,8 @@ GLint modelpos;
 
 GLuint uboProjection;
 GLuint uboView;
+GLuint uboLight;
+GLuint uboCampos;
 
 class Object
 {
@@ -76,6 +89,13 @@ class Object
             transmat[3][2] = position.z;
         }
 };
+struct RenderableObject
+{
+    Object object;
+    std::shared_ptr<Model> model;
+};
+std::vector<RenderableObject> objectlist;
+
 class Camera: public Object
 {
     public:
@@ -130,12 +150,17 @@ class Camera: public Object
 
             glBindBuffer(GL_UNIFORM_BUFFER, uboView);
             glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(viewData), &viewData);
+
+            camData.camPos = position;
+            glBindBuffer(GL_UNIFORM_BUFFER, uboCampos);
+            glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(camData), &camData);
         }
         ~Camera()
         {
         }
     private:
         viewmat viewData = {};
+        campos camData = {};
 };
 class Player: public Object
 {
@@ -151,35 +176,51 @@ class Player: public Object
             forward = glm::vec3(0,0,1);
             right = glm::vec3(1,0,0);
         }
-        void update(float moveX, float moveY, bool updateCam)
+        void update(glm::vec2 move, float deltaTime)
         {
-            if (updateCam)
-            {
-                auto [cosX, sinX] = cam.update();
-                forward = glm::vec3(cosX, 0, -sinX);
-                right = glm::vec3(-sinX, 0, -cosX);
-            }
-            position -= right * moveX * 0.05f;
-            position += forward * moveY * 0.05f;
+            glm::vec3 movement = glm::normalize(forward * move.y - right * move.x);
+            movement = checkCollision(movement) * deltaTime;
+
+            position += movement * 0.02f;
 
             cam.makeView(position);
             makeTransmat();
         }
+        void updateCam()
+        {
+            auto [cosX, sinX] = cam.update();
+            forward = glm::vec3(cosX, 0, -sinX);
+            right = glm::vec3(-sinX, 0, -cosX);
+            cam.makeView(position);
+        }
         ~Player()
         {
         }
-};
 
-struct RenderableObject
-{
-    Object object;
-    std::shared_ptr<Model> model;
+    private:
+        glm::vec3 checkCollision(glm::vec3 movement)
+        {
+            glm::vec3 closestCollision = glm::vec3(0.0f);
+            /*for (const RenderableObject &rendObj : objectlist)
+            {
+                std::optional<glm::vec3> collision = rendObj.model->aabb.intersectRay(movement, position);
+                if (collision)
+                {
+                    closestCollision = collision.value();
+                    glm::vec3 hit = *collision;
+                    std::cout << hit.x << ", " << hit.y << ", " << hit.z << "\n";
+                }
+            }*/
+            return movement;
+        }
 };
 struct PlayerObject
 {
     Player object;
     std::shared_ptr<Model> model;
 };
+PlayerObject playobj;
+
 struct TextureHandle
 {
     GLuint handle;
@@ -212,9 +253,6 @@ TextureHandle makeTex(const char* filepath)
     SDL_FreeSurface(image);
     return texture;
 }
-
-std::vector<RenderableObject> objectlist;
-PlayerObject playobj;
 
 extern "C" void renderLoopWrapper(void* arg);
 
@@ -283,45 +321,31 @@ class Render
             const Uint8* keystate = SDL_GetKeyboardState(NULL);
             glm::vec2 move = glm::vec2(0,0);
 
-            if (keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP])    move.y += 0.3 * deltaTime;
-            if (keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN])  move.y -= 0.3 * deltaTime;
-            if (keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT])  move.x -= 0.3 * deltaTime;
-            if (keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT]) move.x += 0.3 * deltaTime;
+            if (keystate[SDL_SCANCODE_W] || keystate[SDL_SCANCODE_UP])    move.y += 1;
+            if (keystate[SDL_SCANCODE_S] || keystate[SDL_SCANCODE_DOWN])  move.y -= 1;
+            if (keystate[SDL_SCANCODE_A] || keystate[SDL_SCANCODE_LEFT])  move.x -= 1;
+            if (keystate[SDL_SCANCODE_D] || keystate[SDL_SCANCODE_RIGHT]) move.x += 1;
 
-            if (move.x or move.y or updateCam) {playobj.object.update(move.x, move.y, updateCam);}
-
-            /*
-            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-            glDepthMask(GL_TRUE);
-            glClear(GL_DEPTH_BUFFER_BIT);
-            glDepthFunc(GL_LESS);
-
-            glUniformMatrix4fv(modelpos, 1, GL_FALSE, &playobj.object.transmat[0][0]);
-            playobj.model->drawDepth();
-
-            for (RenderableObject& rendObj : objectlist)
+            if (move.x or move.y)
             {
-                glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
-                rendObj.model->drawDepth();
+                playobj.object.update(move, deltaTime);
+                playobj.object.updateCam();
             }
-
-            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-            glDepthMask(GL_FALSE);
-            glClear(GL_COLOR_BUFFER_BIT);
-            glDepthFunc(GL_EQUAL);
-            */
+            if (updateCam)
+            {
+                playobj.object.updateCam();
+            }
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
             glUniformMatrix4fv(modelpos, 1, GL_FALSE, &playobj.object.transmat[0][0]);
             playobj.model->drawModel();
 
-            //std::for_each(std::execution::par, objectlist.begin(), objectlist.end(), [](RenderableObject &rendObj)
             for (RenderableObject &rendObj : objectlist)
             {
                 glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
                 rendObj.model->drawModel();
-            }//);
+            }
 
             getFPS();
             SDL_GL_SwapWindow(window);
@@ -349,8 +373,8 @@ class Render
             }
         }
 };
-
-extern "C" void renderLoopWrapper(void* arg) {
+extern "C" void renderLoopWrapper(void* arg)
+{
     static_cast<Render*>(arg)->loopOnce();
 }
 
@@ -434,6 +458,23 @@ class Scene
                     {obj11, mesh11},
                     {obj12, mesh12},
                 };
+
+                std::cout << "objectlist.size(): " << objectlist.size() << std::endl;
+
+                for (RenderableObject &rendObj : objectlist)
+                {
+                    std::cout << "Model ptr: " << rendObj.model.get() << std::endl;
+
+                    glm::vec3 position = rendObj.object.position;
+                    rendObj.model->aabb.min += position;
+                    rendObj.model->aabb.max += position;
+
+                    for (boundingbox &box : rendObj.model->boundingboxes)
+                    {
+                        box.min += position;
+                        box.max += position;
+                    }
+                }
             }
         }
         ~Scene()
@@ -445,8 +486,13 @@ class Scene
         {
             projmat dataproj = {};
             dataproj.projection = glm::perspective(glm::radians(45.0f), (float)WIDTH/(float)HEIGHT, 0.1f, 100.0f);
-            viewmat data = {};
-            data.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            viewmat dataview = {};
+            dataview.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            lighting datalight = {};
+            datalight.lightcolor = glm::vec4(244.0f, 233.0f, 155.0f, 50.0f);
+            datalight.lightposition = glm::vec3(0.0f, 100.0f, 0.0f);
+            campos datacam = {};
+            datacam.camPos = glm::vec3(0.0f,10.0f,0.0f);
 
             GLuint blockIndex;
 
@@ -455,14 +501,28 @@ class Scene
             blockIndex = glGetUniformBlockIndex(shaderProgram, "PROJ");
             glUniformBlockBinding(shaderProgram, blockIndex, 0);
             glBufferData(GL_UNIFORM_BUFFER, sizeof(projmat), &dataproj, GL_STATIC_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, uboProjection);
+            glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboProjection);
 
             glGenBuffers(1, &uboView);
             glBindBuffer(GL_UNIFORM_BUFFER, uboView);
             blockIndex = glGetUniformBlockIndex(shaderProgram, "VIEW");
             glUniformBlockBinding(shaderProgram, blockIndex, 1);
-            glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &data, GL_DYNAMIC_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, uboView);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &dataview, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboView);
+
+            glGenBuffers(1, &uboLight);
+            glBindBuffer(GL_UNIFORM_BUFFER, uboLight);
+            blockIndex = glGetUniformBlockIndex(shaderProgram, "lighting");
+            glUniformBlockBinding(shaderProgram, blockIndex, 2);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(lighting), &datalight, GL_STATIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboLight);
+
+            glGenBuffers(1, &uboCampos);
+            glBindBuffer(GL_UNIFORM_BUFFER, uboCampos);
+            blockIndex = glGetUniformBlockIndex(shaderProgram, "cam");
+            glUniformBlockBinding(shaderProgram, blockIndex, 3);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(campos), &datacam, GL_DYNAMIC_DRAW);
+            glBindBufferBase(GL_UNIFORM_BUFFER, 3, uboCampos);
 
             modelpos = glGetUniformLocation(shaderProgram, "model");
         }

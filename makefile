@@ -1,6 +1,34 @@
-CXX = g++
-CXXFLAGS = -O3 -Wall -Isrc -Isrc/include -Imodels/V-nexus
-LDFLAGS = -Lsrc/lib -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lSDL2_ttf -lopengl32 -lglew32
+CXX = clang++
+CXXFLAGS =                                         \
+	-fsanitize=address                             \
+	-O3 -Wall                                      \
+	-I./src -I./src/include -I./models/V-nexus     \
+	-I./vcpkg_installed/x64-windows-static/include \
+	-DSDL_MAIN_HANDLED                             \
+	-DSDL_STATIC                                   \
+	-DGLEW_STATIC                                  \
+	-std=c++23
+
+LDFLAGS =                                          \
+	-fsanitize=address                             \
+	-fuse-ld=lld                                   \
+	-L./src/lib                                    \
+	-L./vcpkg_installed/x64-windows-static/lib     \
+	-lSDL2-static                                  \
+	-lSDL2_image-static                            \
+	-lSDL2_ttf                                     \
+	-lfreetype                                     \
+	-lopengl32                                     \
+	-lglew32                                       \
+	-lkernel32 -luser32 -lgdi32 -lwinmm -limm32    \
+	-lole32 -loleaut32 -lversion -luuid -ladvapi32 \
+	-lsetupapi -lshell32 -ldinput8                 \
+	-llibpng16                                     \
+	-lbz2                                          \
+	-lzlib                                         \
+	-lbrotlidec -lbrotlienc -lbrotlicommon
+
+
 OBJS = $(OUTPUT)/main.o $(OUTPUT)/shader.o $(OUTPUT)/loadGLTF.o $(OUTPUT)/glcontext.o
 OUTPUT = output
 
@@ -41,3 +69,6 @@ emcc:
 	-s MIN_WEBGL_VERSION=2 \
 	-s ASSERTIONS \
 	--use-preload-plugins
+
+clean:
+	rm -f $(OUTPUT)/*.o $(OUTPUT)/*.d $(OUTPUT)/a.exe

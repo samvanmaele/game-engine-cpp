@@ -7,6 +7,9 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <optional>
 
 #pragma once
 
@@ -32,6 +35,13 @@ struct MeshDraw
     GLenum mode;
 	int textureIndex = -1;
 };
+struct boundingbox
+{
+	glm::vec3 min;
+	glm::vec3 max;
+
+	std::optional<glm::vec3> intersectRay(const glm::vec3& ray, const glm::vec3& origin);
+};
 
 bool loadModel(tinygltf::Model& model, const std::string& filename);
 
@@ -41,6 +51,8 @@ class Model
 {
 	public:
 		std::vector<MeshDraw> meshdata;
+		std::vector<boundingbox> boundingboxes;
+		boundingbox aabb;
 
 		Model(const char* filename);
 		void drawModel();
@@ -52,6 +64,6 @@ class Model
 
 		void bindNode(tinygltf::Model& model, const tinygltf::Node& node);
 		void bindMesh(tinygltf::Model& model, tinygltf::Mesh& mesh);
-		void bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos);
+		void bindAttrib(tinygltf::Model& model, int binding, int vecSize, int attribPos, bool collision);
 		void createTexture(const tinygltf::Model& model, int index);
 };
