@@ -14,6 +14,7 @@
 #include <list>
 #include <memory>
 #include <execution>
+#include <optional>
 
 #include <platform.hpp>
 #ifdef TARGET_PLATFORM_WEB
@@ -26,10 +27,11 @@
 
 #define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_INTRINSICS
-#define GLM_FORCE_ALIGNED
+//#define GLM_FORCE_ALIGNED
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/type_aligned.hpp>
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 
@@ -58,6 +60,7 @@ struct alignas(16) campos
 int WIDTH = 1920;
 int HEIGHT = 1080;
 SDL_Window* window;
+float farplane = 500.0f;
 
 GLint modelpos;
 
@@ -66,19 +69,24 @@ GLuint uboView;
 GLuint uboLight;
 GLuint uboCampos;
 
+GLuint vao;
+GLint loc;
+
+int shaderBoundingbox;
+int shaderProgram;
+
 class Object
 {
     public:
-        Object()
-        {
-        }
-        ~Object()
-        {
-        }
-        alignas(16) glm::vec3 position = glm::vec3(0,0,0);
-        alignas(16) glm::vec3 eulers = glm::vec3(0,0,0);
-        alignas(16) glm::mat4 transmat = glm::mat4(1.0f);
+        glm::vec3 position;
+        glm::vec3 eulers = glm::vec3(0,0,0);
+        glm::mat4 transmat = glm::mat4(1.0f);
 
+        Object(glm::vec3 pos = glm::vec3(0,0,0))
+        {
+            position = pos;
+            makeTransmat();
+        }
         void makeTransmat()
         {
             transmat = glm::rotate(glm::mat4(1.0f), eulers.x, glm::vec3(1,0,0));
@@ -87,6 +95,9 @@ class Object
             transmat[3][0] = position.x;
             transmat[3][1] = position.y;
             transmat[3][2] = position.z;
+        }
+        ~Object()
+        {
         }
 };
 struct RenderableObject
@@ -166,12 +177,11 @@ class Player: public Object
 {
     public:
         Camera cam;
-        alignas(16) glm::vec3 forward;
-        alignas(16) glm::vec3 right;
+        glm::vec3 forward;
+        glm::vec3 right;
 
-        Player(): Object(), cam(position)
+        Player(glm::vec3 pos = glm::vec3(-55,0,0)): Object(pos), cam(position)
         {
-            position = glm::vec3(0,0,0);
             eulers = glm::vec3(0,0,0);
             forward = glm::vec3(0,0,1);
             right = glm::vec3(1,0,0);
@@ -179,10 +189,9 @@ class Player: public Object
         void update(glm::vec2 move, float deltaTime)
         {
             glm::vec3 movement = glm::normalize(forward * move.y - right * move.x);
-            movement = checkCollision(movement) * deltaTime;
+            movement = checkCollision(movement) * deltaTime * 0.02f;
 
-            position += movement * 0.02f;
-
+            position += movement;
             cam.makeView(position);
             makeTransmat();
         }
@@ -198,20 +207,73 @@ class Player: public Object
         }
 
     private:
-        glm::vec3 checkCollision(glm::vec3 movement)
+        glm::vec3 checkCollision(glm::vec3 movement, glm::vec3 offset = glm::vec3(0.0f), bool recursion = false)
         {
-            glm::vec3 closestCollision = glm::vec3(0.0f);
-            /*for (const RenderableObject &rendObj : objectlist)
+            glm::vec3 startpos = position + offset;
+            glm::vec3 endpos = startpos + movement;
+            float distance = 1.0f;
+            float height = 0.0f;
+            glm::vec3 normal(0.0f);
+            glm::vec3 boundingBox[2];
+
+            glm::vec3 pathMin = glm::min(startpos, endpos) - glm::vec3(1);
+            glm::vec3 pathMax = glm::max(startpos, endpos) + glm::vec3(1);
+
+            for (const RenderableObject &rendObj : objectlist)
             {
-                std::optional<glm::vec3> collision = rendObj.model->aabb.intersectRay(movement, position);
-                if (collision)
+                boundingbox aabb = rendObj.model->aabb;
+
+                if
+                (
+                    aabb.max.x >= pathMin.x &&
+                    aabb.min.x <= pathMax.x &&
+                    aabb.max.z >= pathMin.z &&
+                    aabb.min.z <= pathMax.z
+                )
                 {
-                    closestCollision = collision.value();
-                    glm::vec3 hit = *collision;
-                    std::cout << hit.x << ", " << hit.y << ", " << hit.z << "\n";
+                    for (boundingbox box : rendObj.model->boundingboxes)
+                    {
+                        std::optional<rayHit> collision = box.intersectRay(movement, startpos);
+                        if (collision)
+                        {
+                            if (box.max.y < 1 + startpos.y)
+                            {
+                                if (box.min.x < startpos.x && startpos.x < box.max.x && box.min.z < startpos.z && startpos.z < box.max.z)
+                                {
+                                    height = std::max(height, box.max.y);
+                                }
+                            }
+                            else
+                            {
+                                rayHit hit = *collision;
+                                if (distance > hit.distance)
+                                {
+                                    distance = hit.distance;
+                                    normal = hit.normal;
+                                    boundingBox[0] = box.min;
+                                    boundingBox[1] = box.max;
+                                }
+                            }
+                        }
+                    }
                 }
-            }*/
-            return movement;
+            }
+
+            glm::vec3 closestCollision = movement * distance + 0.01f * normal;
+
+            if (distance != 1.0f)
+            {
+                if (!recursion)
+                {
+                    glm::vec3 remainingMovement = movement * (1.0f - distance);
+                    remainingMovement -= glm::dot(remainingMovement, normal) * normal;
+                    closestCollision += checkCollision(remainingMovement, closestCollision, true);
+                }
+                glUniform3fv(loc, 2, &boundingBox[0][0]);
+            }
+
+            position.y += height;
+            return closestCollision;
         }
 };
 struct PlayerObject
@@ -337,6 +399,7 @@ class Render
             }
 
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glUseProgram(shaderProgram);
 
             glUniformMatrix4fv(modelpos, 1, GL_FALSE, &playobj.object.transmat[0][0]);
             playobj.model->drawModel();
@@ -346,6 +409,10 @@ class Render
                 glUniformMatrix4fv(modelpos, 1, GL_FALSE, &rendObj.object.transmat[0][0]);
                 rendObj.model->drawModel();
             }
+
+            glUseProgram(shaderBoundingbox);
+            glBindVertexArray(vao);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
 
             getFPS();
             SDL_GL_SwapWindow(window);
@@ -385,96 +452,74 @@ class Scene
         {
             if (sceneNr == 0)
             {
-                int shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
+                shaderBoundingbox = makeShader("shaders/shaderBoundingbox.vs", "shaders/shaderBoundingbox.fs");
+                glUseProgram(shaderBoundingbox);
+
+                glGenVertexArrays(1, &vao);
+                glBindVertexArray(vao);
+
+                GLuint data[] =
+                {
+                    0, 2, 1, 3, 1, 2,
+                    4, 5, 6, 7, 6, 5,
+                    0, 1, 4, 5, 4, 1,
+                    2, 6, 3, 7, 3, 6,
+                    0, 4, 2, 6, 2, 4,
+                    1, 3, 5, 7, 5, 3
+                };
+
+                GLuint vbo;
+                glGenBuffers(1, &vbo);
+                glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                glBufferData(GL_ARRAY_BUFFER, sizeof(data), data, GL_STATIC_DRAW);
+
+                glEnableVertexAttribArray(0);
+                glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, sizeof(GLuint), (void*)0);
+
+                glm::vec3 boundingBox[2] =
+                {
+                    glm::vec3(-50,0,-50),
+                    glm::vec3(50,50,50)
+                };
+
+                loc = glGetUniformLocation(shaderBoundingbox, "boundingBox");
+                glUniform3fv(loc, 2, &boundingBox[0][0]);
+
+
+
+                shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
                 glUseProgram(shaderProgram);
-                setUniformBuffer(shaderProgram);
 
-                Player obj1;
-                Object obj2;
-                Object obj3;
-                Object obj4;
-                Object obj5;
-                Object obj6;
-                Object obj7;
-                Object obj8;
-                Object obj9;
-                Object obj10;
-                Object obj11;
-                Object obj12;
-                Object obj13;
-
-                obj1.position =  glm::vec3(0,      0,    0     );
-                obj2.position =  glm::vec3(-8,     5.55, 40    );
-                obj3.position =  glm::vec3(43,     2.35, 7.775 );
-                obj4.position =  glm::vec3(0,      2.5,  0     );
-                obj5.position =  glm::vec3(46,     6.31, -33.75);
-                obj6.position =  glm::vec3(42,     0.1,   46    );
-                obj7.position =  glm::vec3(6,      0,     0     );
-                obj8.position =  glm::vec3(41.9,   3.2,  -10.05);
-                obj9.position =  glm::vec3(7.75,   0.6,   -37   );
-                obj10.position = glm::vec3(0,      2.5,  0     );
-                obj11.position = glm::vec3(2,      51.1,  4     );
-                obj12.position = glm::vec3(-36.15, 5.5,  26    );
-                obj1.makeTransmat();
-                obj2.makeTransmat();
-                obj3.makeTransmat();
-                obj4.makeTransmat();
-                obj5.makeTransmat();
-                obj6.makeTransmat();
-                obj7.makeTransmat();
-                obj8.makeTransmat();
-                obj9.makeTransmat();
-                obj10.makeTransmat();
-                obj11.makeTransmat();
-                obj12.makeTransmat();
-
-                using ModelPtr = std::shared_ptr<Model>;
-                ModelPtr mesh1 = std::make_shared<Model>("models/vedal987/vedal987.gltf");
-                ModelPtr mesh2 = std::make_shared<Model>("models/V-nexus/Camilla's_tent/Camillas_tent.gltf");
-                ModelPtr mesh3 = std::make_shared<Model>("models/V-nexus/drone_factory/drone_factory.gltf");
-                ModelPtr mesh4 = std::make_shared<Model>("models/V-nexus/floors/floors.gltf");
-                ModelPtr mesh5 = std::make_shared<Model>("models/V-nexus/item_factory/item_factory.gltf");
-                ModelPtr mesh6 = std::make_shared<Model>("models/V-nexus/item_shop/item_shop.gltf");
-                ModelPtr mesh7 = std::make_shared<Model>("models/V-nexus/street/street.gltf");
-                ModelPtr mesh8 = std::make_shared<Model>("models/V-nexus/upgrade_smith/upgrade_smith.gltf");
-                ModelPtr mesh9 = std::make_shared<Model>("models/V-nexus/utilities/utilities.gltf");
-                ModelPtr mesh10 = std::make_shared<Model>("models/V-nexus/walls/walls.gltf");
-                ModelPtr mesh11 = std::make_shared<Model>("models/V-nexus/world_center/world_center.gltf");
-                ModelPtr mesh12 = std::make_shared<Model>("models/V-nexus/vedal's_house/vedals_house.gltf");
-
-                playobj = PlayerObject{obj1, mesh1};
+                playobj = PlayerObject{Player(), std::make_shared<Model>("models/vedal987/vedal987.gltf")};
 
                 objectlist =
                 {
-                    {obj2,  mesh2},
-                    {obj3,  mesh3},
-                    {obj4,  mesh4},
-                    {obj5,  mesh5},
-                    {obj6,  mesh6},
-                    {obj7,  mesh7},
-                    {obj8,  mesh8},
-                    {obj9,  mesh9},
-                    {obj10, mesh10},
-                    {obj11, mesh11},
-                    {obj12, mesh12},
+                    {Object(glm::vec3(-8,     5.55, 40    )), std::make_shared<Model>("models/V-nexus/Camilla's_tent/Camillas_tent.gltf")},
+                    {Object(glm::vec3(43,     2.35, 7.775 )), std::make_shared<Model>("models/V-nexus/drone_factory/drone_factory.gltf")},
+                    {Object(glm::vec3(0,      2.5,  0     )), std::make_shared<Model>("models/V-nexus/floors/floors.gltf")},
+                    {Object(glm::vec3(46,     6.31, -33.75)), std::make_shared<Model>("models/V-nexus/item_factory/item_factory.gltf")},
+                    {Object(glm::vec3(42,     0.1,  46    )), std::make_shared<Model>("models/V-nexus/item_shop/item_shop.gltf")},
+                    {Object(glm::vec3(6,      0,    0     )), std::make_shared<Model>("models/V-nexus/street/street.gltf")},
+                    {Object(glm::vec3(41.9,   3.2,  -10.05)), std::make_shared<Model>("models/V-nexus/upgrade_smith/upgrade_smith.gltf")},
+                    {Object(glm::vec3(7.75,   0.6,  -37   )), std::make_shared<Model>("models/V-nexus/utilities/utilities.gltf")},
+                    {Object(glm::vec3(0,      2.5,  0     )), std::make_shared<Model>("models/V-nexus/walls/walls.gltf")},
+                    {Object(glm::vec3(2,      51.1, 4     )), std::make_shared<Model>("models/V-nexus/world_center/world_center.gltf")},
+                    {Object(glm::vec3(-36.15, 5.5,  26    )), std::make_shared<Model>("models/V-nexus/vedal's_house/vedals_house.gltf")},
                 };
-
-                std::cout << "objectlist.size(): " << objectlist.size() << std::endl;
 
                 for (RenderableObject &rendObj : objectlist)
                 {
-                    std::cout << "Model ptr: " << rendObj.model.get() << std::endl;
-
                     glm::vec3 position = rendObj.object.position;
                     rendObj.model->aabb.min += position;
                     rendObj.model->aabb.max += position;
 
                     for (boundingbox &box : rendObj.model->boundingboxes)
                     {
-                        box.min += position;
-                        box.max += position;
+                        box.min += position - glm::vec3(0.7, 0.1, 0.7);
+                        box.max += position + glm::vec3(0.7, 0.1, 0.7);
                     }
                 }
+                setUniformBuffer();
             }
         }
         ~Scene()
@@ -482,12 +527,13 @@ class Scene
         }
 
     private:
-        void setUniformBuffer(int shaderProgram)
+        void setUniformBuffer()
         {
             projmat dataproj = {};
-            dataproj.projection = glm::perspective(glm::radians(45.0f), (float)WIDTH/(float)HEIGHT, 0.1f, 100.0f);
-            viewmat dataview = {};
-            dataview.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            dataproj.projection = glm::perspective(glm::radians(45.0f), (float)WIDTH/(float)HEIGHT, 0.1f, farplane);
+            viewmat data = {};
+            data.view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f), glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
             lighting datalight = {};
             datalight.lightcolor = glm::vec4(244.0f, 233.0f, 155.0f, 50.0f);
             datalight.lightposition = glm::vec3(0.0f, 100.0f, 0.0f);
@@ -498,30 +544,34 @@ class Scene
 
             glGenBuffers(1, &uboProjection);
             glBindBuffer(GL_UNIFORM_BUFFER, uboProjection);
-            blockIndex = glGetUniformBlockIndex(shaderProgram, "PROJ");
-            glUniformBlockBinding(shaderProgram, blockIndex, 0);
             glBufferData(GL_UNIFORM_BUFFER, sizeof(projmat), &dataproj, GL_STATIC_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 0, uboProjection);
-
             glGenBuffers(1, &uboView);
             glBindBuffer(GL_UNIFORM_BUFFER, uboView);
-            blockIndex = glGetUniformBlockIndex(shaderProgram, "VIEW");
-            glUniformBlockBinding(shaderProgram, blockIndex, 1);
-            glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &dataview, GL_DYNAMIC_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 1, uboView);
-
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(viewmat), &data, GL_DYNAMIC_DRAW);
             glGenBuffers(1, &uboLight);
             glBindBuffer(GL_UNIFORM_BUFFER, uboLight);
-            blockIndex = glGetUniformBlockIndex(shaderProgram, "lighting");
-            glUniformBlockBinding(shaderProgram, blockIndex, 2);
             glBufferData(GL_UNIFORM_BUFFER, sizeof(lighting), &datalight, GL_STATIC_DRAW);
-            glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboLight);
-
             glGenBuffers(1, &uboCampos);
             glBindBuffer(GL_UNIFORM_BUFFER, uboCampos);
+            glBufferData(GL_UNIFORM_BUFFER, sizeof(campos), &datacam, GL_DYNAMIC_DRAW);
+
+            for (int shader : std::initializer_list<int>{shaderProgram, shaderBoundingbox})
+            {
+                blockIndex = glGetUniformBlockIndex(shader, "PROJ");
+                glUniformBlockBinding(shader, blockIndex, 0);
+                glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, uboProjection);
+
+                blockIndex = glGetUniformBlockIndex(shader, "VIEW");
+                glUniformBlockBinding(shader, blockIndex, 1);
+                glBindBufferBase(GL_UNIFORM_BUFFER, blockIndex, uboView);
+            }
+
+            blockIndex = glGetUniformBlockIndex(shaderProgram, "lighting");
+            glUniformBlockBinding(shaderProgram, blockIndex, 2);
+            glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboLight);
+
             blockIndex = glGetUniformBlockIndex(shaderProgram, "cam");
             glUniformBlockBinding(shaderProgram, blockIndex, 3);
-            glBufferData(GL_UNIFORM_BUFFER, sizeof(campos), &datacam, GL_DYNAMIC_DRAW);
             glBindBufferBase(GL_UNIFORM_BUFFER, 3, uboCampos);
 
             modelpos = glGetUniformLocation(shaderProgram, "model");

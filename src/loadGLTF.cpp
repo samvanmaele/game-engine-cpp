@@ -21,29 +21,6 @@
 #define BUFFER_OFFSET(i) ((char *)nullptr + (i))
 std::unordered_map<int, GLuint> textureMap;
 
-std::optional<glm::vec3> boundingbox::intersectRay(const glm::vec3& ray, const glm::vec3& origin)
-{
-    glm::vec3 dirFrac;
-    for (int i = 0; i < 3; ++i)
-    {
-        dirFrac[i] = (ray[i] != 0.0f) ? 1.0f / ray[i] : std::numeric_limits<float>::infinity();
-    }
-
-    float t1 = (min.x - origin.x) * dirFrac.x;
-    float t2 = (max.x - origin.x) * dirFrac.x;
-    float t3 = (min.y - origin.y) * dirFrac.y;
-    float t4 = (max.y - origin.y) * dirFrac.y;
-    float t5 = (min.z - origin.z) * dirFrac.z;
-    float t6 = (max.z - origin.z) * dirFrac.z;
-
-    float tmin = std::max({std::min(t1, t2), std::min(t3, t4), std::min(t5, t6)});
-    float tmax = std::min({std::max(t1, t2), std::max(t3, t4), std::max(t5, t6)});
-
-    if (tmax < 0 || tmin > tmax) {return std::nullopt;}
-    float t = (tmin >= 0) ? tmin : tmax;
-    return ray * t;
-}
-
 bool loadModel(tinygltf::Model& model, const std::string& filename)
 {
     tinygltf::TinyGLTF loader;
