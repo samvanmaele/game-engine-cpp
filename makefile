@@ -68,7 +68,8 @@ emcc:
 	-s MAX_WEBGL_VERSION=2 \
 	-s MIN_WEBGL_VERSION=2 \
 	-s ASSERTIONS \
-	--use-preload-plugins
+	--use-preload-plugins \
+	-std=c++23
 
 clean:
 	rm -f $(OUTPUT)/*.o $(OUTPUT)/*.d $(OUTPUT)/a.exe

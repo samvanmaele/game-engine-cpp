@@ -24,3 +24,6 @@ output
 include
 lib
 vcpkg_installed
+release
+release.zip
+game-jam

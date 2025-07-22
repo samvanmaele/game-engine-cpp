@@ -88,8 +88,11 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     }
 
     glEnable(GL_DEPTH_TEST);
-    glDepthFunc(GL_LESS);
+    glDepthFunc(GL_LEQUAL);
     glEnable(GL_BLEND);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glViewport(0, 0, screenWidth, screenHeight);
     glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
