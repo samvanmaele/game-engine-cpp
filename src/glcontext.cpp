@@ -1,17 +1,16 @@
-#include <glcontext.hpp>
+#include "glcontext.hpp"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_timer.h>
 #include <iostream>
-#include <platform.hpp>
 
-#ifdef TARGET_PLATFORM_WEB
+#ifdef __EMSCRIPTEN__
     #include <emscripten.h>
     #include <emscripten/html5.h>
     #include <GLES3/gl3.h>
 #else
-    #include <glew/glew.h>
+    #include <GL/glew.h>
 #endif
 
 SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval)

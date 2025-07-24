@@ -1,0 +1,22 @@
+[
+  {
+    "directory": "C:/Users/vanma/OneDrive/C++",
+    "command": "clang++ -fsanitize=address -O3 -Wall -I./src -I./src/include -I./models/V-nexus -I./vcpkg_installed/x64-windows-static/include -DSDL_MAIN_HANDLED -DSDL_STATIC -DGLEW_STATIC -std=c++23 -c src/main.cpp",
+    "file": "src/main.cpp"
+  },
+  {
+    "directory": "C:/Users/vanma/OneDrive/C++",
+    "command": "clang++ -fsanitize=address -O3 -Wall -I./src -I./src/include -I./models/V-nexus -I./vcpkg_installed/x64-windows-static/include -DSDL_MAIN_HANDLED -DSDL_STATIC -DGLEW_STATIC -std=c++23 -c src/shader.cpp",
+    "file": "src/shader.cpp"
+  },
+  {
+    "directory": "C:/Users/vanma/OneDrive/C++",
+    "command": "clang++ -fsanitize=address -O3 -Wall -I./src -I./src/include -I./models/V-nexus -I./vcpkg_installed/x64-windows-static/include -DSDL_MAIN_HANDLED -DSDL_STATIC -DGLEW_STATIC -std=c++23 -c src/loadGLTF.cpp",
+    "file": "src/loadGLTF.cpp"
+  },
+  {
+    "directory": "C:/Users/vanma/OneDrive/C++",
+    "command": "clang++ -fsanitize=address -O3 -Wall -I./src -I./src/include -I./models/V-nexus -I./vcpkg_installed/x64-windows-static/include -DSDL_MAIN_HANDLED -DSDL_STATIC -DGLEW_STATIC -std=c++23 -c src/glcontext.cpp",
+    "file": "src/glcontext.cpp"
+  }
+]

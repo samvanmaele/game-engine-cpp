@@ -3,14 +3,13 @@
 #include <string>
 #include <fstream>
 #include <sstream>
-#include <platform.hpp>
 
-#ifdef TARGET_PLATFORM_WEB
+#ifdef __EMSCRIPTEN__
 	#include <emscripten.h>
 	#include <emscripten/html5.h>
 	#include <GLES3/gl3.h>
 #else
-	#include <glew/glew.h>
+	#include <GL/glew.h>
 #endif
 
 unsigned int makeShader(const char* vertexPath, const char* fragmentPath)

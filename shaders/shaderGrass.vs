@@ -1,28 +1,22 @@
 #version 300 es
 precision highp float;
+precision highp int;
 
-layout (std140) uniform PROJ
-{
-    mat4 projection;
-};
-layout (std140) uniform VIEW
-{
-    mat4 view;
-};
-layout (std140) uniform cam
-{
-    vec3 campos;
-};
+layout (std140) uniform PROJ {mat4 projection;};
+layout (std140) uniform VIEW {mat4 view;};
+layout (std140) uniform cam  {vec3 campos;};
 
-uniform sampler2D map;
-uniform vec2 forward;
+uniform sampler2D noisemap;
+uniform ivec2 forward;
 uniform float time;
-uniform float density;
+uniform vec2 playerpos;
 
 out float dis;
 out float height;
 
-const float rows = 128.0;
+const int power = 10;
+const int rows = 1 << power;
+const int halfrow = rows / 2;
 const vec3 vertices[5] = vec3[5]
 (
     vec3(-0.1, 0, 0),
@@ -32,30 +26,34 @@ const vec3 vertices[5] = vec3[5]
     vec3(0, 0.5, 0)
 );
 
-float hash12(vec2 p)
-{
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
-}
 void main()
 {
-    float id = float(gl_InstanceID);
-    float x = mod(id, rows);
-    float y = floor(id / rows);
+    float group = 3.0 - float(gl_InstanceID >> 14);
+    float density = 1.0/(2.0 * 3.0);
 
-    vec2 grid = (vec2(x, y) - rows * 0.5 + floor(forward * (rows * 0.5))) * density;
-    dis = length(grid) * 0.005;
+    int id = gl_InstanceID;
+    ivec2 base = ivec2(id & (rows - 1), id >> power) - halfrow;
+    base *= sign(forward) | ivec2(1);
+    base += forward;
 
-    grid += floor(vec2(campos.x, campos.z));
+    vec2 grid = vec2(base) * density;
+    dis = dot(grid, grid) * 0.0001;
 
-    float rnd = hash12(grid);
-    vec2 jitter = vec2(cos(rnd * 6.2831), sin(rnd * 6.2831)) * 0.3;
-    grid += jitter;
+    grid += floor(campos.xz);
+    vec2 rnd = texture(noisemap, grid * 0.01).xy;
+    grid += rnd;
 
     vec3 vpos = vertices[gl_VertexID];
+    vpos.y *= rnd.x + 1.0;
     height = vpos.y * 2.0;
 
-    grid.x += height * (cos(time + grid.x + grid.y)) * 0.2;
+    vec2 direction = grid - playerpos;
+    float dist = length(direction);
+    float effect = clamp(dist, 0.0, 1.0);
 
-    vec4 worldpos = view * vec4(grid.x, 0, grid.y, 1) + vec4(vpos, 0);
+    grid += height * (1.0 - effect) * direction * 2.0;
+    grid.x += height * floor(effect) * sin(time + grid.x + grid.y) * 0.2;
+
+    vec4 worldpos = view * vec4(grid.x, 0.0, grid.y, 1.0) + vec4(vpos, 0);
     gl_Position = projection * worldpos;
 }

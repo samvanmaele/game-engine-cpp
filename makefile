@@ -12,7 +12,6 @@ CXXFLAGS =                                         \
 LDFLAGS =                                          \
 	-fsanitize=address                             \
 	-fuse-ld=lld                                   \
-	-L./src/lib                                    \
 	-L./vcpkg_installed/x64-windows-static/lib     \
 	-lSDL2-static                                  \
 	-lSDL2_image-static                            \

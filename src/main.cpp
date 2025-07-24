@@ -4,26 +4,18 @@
 //npx live-server . -o -p 9999
 
 #include <algorithm>
-#include <cmath>
-#include <iomanip>
-#include <ostream>
 #include <string>
-#include <iostream>
-#include <vector>
 #include <math.h>
-#include <numbers>
-#include <list>
 #include <memory>
-#include <execution>
-#include <optional>
+#include <numbers>
+#include <iostream>
 
-#include <platform.hpp>
-#ifdef TARGET_PLATFORM_WEB
+#ifdef __EMSCRIPTEN__
 	#include <emscripten.h>
     #include <emscripten/html5.h>
 	#include <GLES3/gl3.h>
 #else
-	#include <glew/glew.h>
+    #include <GL/glew.h>
 #endif
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -65,10 +57,10 @@ int HEIGHT = 1080;
 SDL_Window* window;
 
 GLint modelpos;
-GLint timepos;
+GLint noisemappos;
 GLint forwardpos;
-GLint densitypos;
-GLint billboardpos;
+GLint timepos;
+GLint playerpos;
 
 GLuint uboProjection;
 GLuint uboView;
@@ -296,9 +288,9 @@ struct TextureHandle
 {
     GLuint handle;
 };
-void useTex(TextureHandle texture)
+void useTex(const TextureHandle texture, const GLenum unit)
 {
-    glActiveTexture(GL_TEXTURE0);
+    glActiveTexture(unit);
     glBindTexture(GL_TEXTURE_2D, texture.handle);
 }
 TextureHandle makeTex(const char* filepath)
@@ -308,8 +300,15 @@ TextureHandle makeTex(const char* filepath)
     glBindTexture(GL_TEXTURE_2D, texture.handle);
 
     SDL_Surface *image = IMG_Load(filepath);
-    int bitsPerPixel = image->format->BitsPerPixel;
-    GLint format = (bitsPerPixel == 32) ? GL_RGBA : GL_RGB;
+    int channels = image->format->BytesPerPixel;
+    GLenum format;
+    switch (channels)
+    {
+        case 1: format = GL_RED;  break;
+        case 2: format = GL_RG;   break;
+        case 3: format = GL_RGB;  break;
+        case 4: format = GL_RGBA; break;
+    }
 
     glTexImage2D(GL_TEXTURE_2D, 0, format, image->w, image->h, 0, format, GL_UNSIGNED_BYTE, image->pixels);
     SDL_FreeSurface(image);
@@ -347,6 +346,9 @@ TextureHandle makeTex3D(const std::array<const char*, 6>& filepath)
     return texture;
 }
 
+TextureHandle hashtex;
+TextureHandle perlintex;
+
 extern "C" void renderLoopWrapper(void* arg);
 
 class Render
@@ -377,7 +379,6 @@ class Render
         ~Render()
         {
         }
-
     private:
         Uint32 previousFrameTime = SDL_GetTicks();
         Uint32 lastTime = SDL_GetTicks();
@@ -447,23 +448,7 @@ class Render
             glUseProgram(shaderSkybox);
             glDrawArrays(GL_TRIANGLES, 0, 36);
 
-            glUseProgram(shaderGrass);
-            float time = previousFrameTime * 0.002;
-            glUniform1fv(timepos, 1, &time);
-            glm::vec2 forward = glm::normalize(glm::vec2(playobj.object.cam.forward.x, playobj.object.cam.forward.z));
-            glUniform2fv(forwardpos, 1, &forward[0]);
-
-            float density = 1.0/6.0;
-            glUniform1fv(densitypos, 1, &density);
-            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 16384);
-
-            density = 1.0/3.0;
-            glUniform1fv(densitypos, 1, &density);
-            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 16384);
-
-            density = 1.0/2.0;
-            glUniform1fv(densitypos, 1, &density);
-            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 16384);
+            drawGrass();
 
             glUseProgram(shaderBoundingbox);
             glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -495,6 +480,21 @@ class Render
                 lastTime = currentTime;
             }
         }
+        void drawGrass()
+        {
+            glUseProgram(shaderGrass);
+
+            useTex(hashtex, GL_TEXTURE0);
+
+            float time = previousFrameTime * 0.002f;
+            glUniform1fv(timepos, 1, &time);
+            glm::ivec2 forward = glm::ivec2(256.0f * glm::normalize(glm::vec2(playobj.object.cam.forward.x, playobj.object.cam.forward.z)));
+            glUniform2iv(forwardpos, 1, &forward[0]);
+            glm::vec2 playpos = glm::vec2(playobj.object.position.x, playobj.object.position.z);
+            glUniform2fv(playerpos, 1, &playpos[0]);
+
+            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 1024*1024);
+        }
 };
 extern "C" void renderLoopWrapper(void* arg)
 {
@@ -514,12 +514,13 @@ class Scene
                 shaderBoundingbox = makeShader("shaders/shaderBoundingbox.vs", "shaders/shaderBoundingbox.fs");
 
                 setUniformBuffer();
+                setGrassShader();
                 setBoundingboxShader();
                 setSkyboxShader();
 
                 glUseProgram(shaderProgram);
 
-                playobj = PlayerObject{Player(glm::vec3(200.56, 0, -170.47)), std::make_shared<Model>("models/vedal987/vedal987.gltf")};
+                playobj = PlayerObject{Player(glm::vec3(200.56, 0, -175.47)), std::make_shared<Model>("models/vedal987/vedal987.gltf")};
                 auto houseModel = std::make_shared<Model>("models/house/house.gltf");
 
                 objectlist =
@@ -655,10 +656,15 @@ class Scene
                 glBindBufferBase(GL_UNIFORM_BUFFER, 3, uboCampos);
             }
             modelpos = glGetUniformLocation(shaderProgram, "model");
-            timepos = glGetUniformLocation(shaderGrass, "time");
+            noisemappos = glGetUniformLocation(shaderGrass, "noisemap");
             forwardpos = glGetUniformLocation(shaderGrass, "forward");
-            densitypos = glGetUniformLocation(shaderGrass, "density");
-            billboardpos = glGetUniformLocation(shaderGrass, "billboard");
+            timepos = glGetUniformLocation(shaderGrass, "time");
+            playerpos = glGetUniformLocation(shaderGrass, "playerpos");
+        }
+        void setGrassShader()
+        {
+            glUseProgram(shaderGrass);
+            hashtex = makeTex("gfx/hash.png");
         }
         void setBoundingboxShader()
         {
