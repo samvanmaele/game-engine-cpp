@@ -8,7 +8,6 @@
 #include <math.h>
 #include <memory>
 #include <numbers>
-#include <iostream>
 
 #ifdef __EMSCRIPTEN__
 	#include <emscripten.h>
@@ -59,6 +58,8 @@ SDL_Window* window;
 GLint modelpos;
 GLint noisemappos;
 GLint forwardpos;
+GLint noisemapfarpos;
+GLint forwardfarpos;
 GLint timepos;
 GLint playerpos;
 
@@ -72,6 +73,7 @@ GLint loc;
 
 int shaderProgram;
 int shaderGrass;
+int shaderGrassFar;
 int shaderSkybox;
 int shaderBoundingbox;
 
@@ -363,14 +365,14 @@ class Render
         {
             if (!baseloop())
             {
-                #ifdef TARGET_PLATFORM_WEB
+                #ifdef __EMSCRIPTEN__
                     emscripten_cancel_main_loop(); // stop loop if baseloop returned false
                 #endif
             }
         }
         inline void chooseLoop()
         {
-            #ifdef TARGET_PLATFORM_WEB
+            #ifdef __EMSCRIPTEN__
                 emscripten_set_main_loop_arg(renderLoopWrapper, this, 0, 1);
             #else
                 nativeLoop();
@@ -447,9 +449,7 @@ class Render
 
             glUseProgram(shaderSkybox);
             glDrawArrays(GL_TRIANGLES, 0, 36);
-
             drawGrass();
-
             glUseProgram(shaderBoundingbox);
             glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -487,13 +487,17 @@ class Render
             useTex(hashtex, GL_TEXTURE0);
 
             float time = previousFrameTime * 0.002f;
-            glUniform1fv(timepos, 1, &time);
-            glm::ivec2 forward = glm::ivec2(256.0f * glm::normalize(glm::vec2(playobj.object.cam.forward.x, playobj.object.cam.forward.z)));
-            glUniform2iv(forwardpos, 1, &forward[0]);
+            glm::ivec2 forward = glm::ivec2(128.0f * glm::normalize(glm::vec2(playobj.object.cam.forward.x, playobj.object.cam.forward.z)));
             glm::vec2 playpos = glm::vec2(playobj.object.position.x, playobj.object.position.z);
-            glUniform2fv(playerpos, 1, &playpos[0]);
 
-            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 1024*1024);
+            glUniform1fv(timepos, 1, &time);
+            glUniform2iv(forwardpos, 1, &forward[0]);
+            glUniform2fv(playerpos, 1, &playpos[0]);
+            glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 5, 3*256*256);
+
+            glUseProgram(shaderGrassFar);
+            glUniform2iv(forwardpos, 1, &forward[0]);
+            glDrawArraysInstanced(GL_TRIANGLES, 0, 15, 256*256);
         }
 };
 extern "C" void renderLoopWrapper(void* arg)
@@ -510,6 +514,7 @@ class Scene
             {
                 shaderProgram = makeShader("shaders/shader3D.vs", "shaders/shader3D.fs");
                 shaderGrass = makeShader("shaders/shaderGrass.vs", "shaders/shaderGrass.fs");
+                shaderGrassFar = makeShader("shaders/shaderGrassFar.vs", "shaders/shaderGrass.fs");
                 shaderSkybox = makeShader("shaders/shaderSkybox.vs", "shaders/shaderSkybox.fs");
                 shaderBoundingbox = makeShader("shaders/shaderBoundingbox.vs", "shaders/shaderBoundingbox.fs");
 
@@ -634,7 +639,7 @@ class Scene
             glBindBuffer(GL_UNIFORM_BUFFER, uboCampos);
             glBufferData(GL_UNIFORM_BUFFER, sizeof(campos), &datacam, GL_DYNAMIC_DRAW);
 
-            for (int shader : std::initializer_list<int>{shaderProgram, shaderGrass, shaderSkybox, shaderBoundingbox})
+            for (int shader : std::initializer_list<int>{shaderProgram, shaderGrass, shaderGrassFar, shaderSkybox, shaderBoundingbox})
             {
                 blockIndex = glGetUniformBlockIndex(shader, "PROJ");
                 glUniformBlockBinding(shader, blockIndex, 0);
@@ -649,7 +654,7 @@ class Scene
             glUniformBlockBinding(shaderProgram, blockIndex, 2);
             glBindBufferBase(GL_UNIFORM_BUFFER, 2, uboLight);
 
-            for (int shader : std::initializer_list<int>{shaderProgram, shaderGrass})
+            for (int shader : std::initializer_list<int>{shaderProgram, shaderGrass, shaderGrassFar})
             {
                 blockIndex = glGetUniformBlockIndex(shader, "cam");
                 glUniformBlockBinding(shader, blockIndex, 3);
@@ -658,6 +663,8 @@ class Scene
             modelpos = glGetUniformLocation(shaderProgram, "model");
             noisemappos = glGetUniformLocation(shaderGrass, "noisemap");
             forwardpos = glGetUniformLocation(shaderGrass, "forward");
+            noisemapfarpos = glGetUniformLocation(shaderGrassFar, "noisemap");
+            forwardfarpos = glGetUniformLocation(shaderGrassFar, "forward");
             timepos = glGetUniformLocation(shaderGrass, "time");
             playerpos = glGetUniformLocation(shaderGrass, "playerpos");
         }
@@ -691,7 +698,6 @@ class Scene
 int main(int argc, char* argv[])
 {
     window = InitGLContext(WIDTH, HEIGHT, 0);
-    SDL_GL_SetSwapInterval(0);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     Scene scene(0);

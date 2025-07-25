@@ -56,6 +56,7 @@ emcc:
 	src/main.cpp src/shader.cpp src/loadGLTF.cpp src/glcontext.cpp \
 	-o $(OUTPUT)/main.html \
 	-Isrc -Isrc/include -Imodels -Imodels/V-nexus \
+	-I./vcpkg_installed/x64-windows-static/include \
 	--preload-file shaders \
 	--preload-file models \
 	--preload-file gfx \
@@ -71,4 +72,4 @@ emcc:
 	-std=c++23
 
 clean:
-	rm -f $(OUTPUT)/*.o $(OUTPUT)/*.d $(OUTPUT)/a.exe
+	rm -f $(OUTPUT)/*.o $(OUTPUT)/*.d $(OUTPUT)/*.wasm $(OUTPUT)/*.js $(OUTPUT)/*.html $(OUTPUT)/*.pdb $(OUTPUT)/*.data $(OUTPUT)/a.exe

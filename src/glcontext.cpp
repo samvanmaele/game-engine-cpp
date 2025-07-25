@@ -15,21 +15,12 @@
 
 SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const int swapInterval)
 {
-    SDL_Window* window;
-    SDL_GLContext mainContext;
-
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
-    {
-        std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;
-    }
-    if (TTF_Init() == -1)
-    {
-        std::cerr << "Unable to initialize TTF: " << TTF_GetError() << std::endl;
-    }
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {std::cerr << "Unable to initialize SDL: " << SDL_GetError() << std::endl;}
+    if (TTF_Init() == -1)             {std::cerr << "Unable to initialize TTF: " << TTF_GetError() << std::endl;}
 
     std::cout << "Init OpenGL" << std::endl;
 
-    #ifdef TARGET_PLATFORM_WEB
+    #ifdef __EMSCRIPTEN__
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
@@ -45,18 +36,12 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
 
-    window = SDL_CreateWindow("...", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-    if (!window)
-    {
-        std::cerr << "Unable to create window: " << SDL_GetError() << std::endl;
-    }
+    SDL_Window* window = SDL_CreateWindow("...", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, screenWidth, screenHeight, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+    if (!window) {std::cerr << "Unable to create window: " << SDL_GetError() << std::endl;}
+    SDL_GLContext mainContext = SDL_GL_CreateContext(window);
+    if (!mainContext) {std::cerr << "Unable to create OpenGL context: " << SDL_GetError() << std::endl;}
 
-    mainContext = SDL_GL_CreateContext(window);
-    if (!mainContext)
-    {
-        std::cerr << "Unable to create OpenGL context: " << SDL_GetError() << std::endl;
-    }
-    #ifdef TARGET_PLATFORM_WEB
+    #ifdef __EMSCRIPTEN__
         EmscriptenWebGLContextAttributes attrs = {};
         attrs.antialias = true;
         attrs.majorVersion = 2;
@@ -70,21 +55,10 @@ SDL_Window* InitGLContext(const int screenWidth, const int screenHeight, const i
         emscripten_webgl_make_context_current(webgl_context);
     #else
         glewExperimental = GL_TRUE;
-        GLenum glewinit = glewInit();
-        if(glewinit!=GLEW_OK)
-        {
-            std::cout << "glewInit failed, aborting" << "\n";
-        }
-        else
-        {
-            std::cout << "GLEW initialised" << "\n";
-        }
+        if (glewInit()!=GLEW_OK) {std::cerr << "glewInit failed, aborting" << "\n";}
     #endif
 
-    if (SDL_GL_SetSwapInterval(swapInterval) < 0)
-    {
-        std::cerr << "Unable to set swap interval: " << SDL_GetError() << std::endl;
-    }
+    if (SDL_GL_SetSwapInterval(swapInterval) < 0) {std::cerr << "Unable to set swap interval: " << SDL_GetError() << std::endl;}
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
